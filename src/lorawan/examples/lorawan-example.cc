@@ -91,6 +91,7 @@ int main (int argc, char *argv[])
   mobility.Install (allNodes);
 
   LoRaWANHelper lorawanHelper;
+  lorawanHelper.SetNbRep(1);
   NetDeviceContainer lorawanEDDevices = lorawanHelper.Install (endDeviceNodes);
 
   lorawanHelper.SetDeviceType (LORAWAN_DT_GATEWAY);

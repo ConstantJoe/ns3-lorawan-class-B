@@ -69,20 +69,21 @@ typedef struct LoRaWANNSDSQueueElement {
   Ptr<Packet>     m_downstreamPacket;
   uint8_t         m_downstreamFramePort;
   LoRaWANMsgType  m_downstreamMsgType;
-  uint8_t 	  m_downstreamTransmissionsRemaining;
-  bool 		  m_isRetransmission;
+  uint8_t     m_downstreamTransmissionsRemaining;
+  bool      m_isRetransmission;
 } LoRaWANNSDSQueueElement;
 
 typedef struct LoRaWANEndDeviceInfoNS {
   LoRaWANEndDeviceInfoNS () : m_deviceAddress(), m_rx1DROffset(0), m_lastDSGW(nullptr), m_lastGWs(),
-	m_lastDataRateIndex(0), m_lastChannelIndex(0), m_lastCodeRate(0), m_lastSeen(0),
-	m_framePending(false),m_setAck(false), m_fCntUp(0), m_fCntDown(0),
-	m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
-	m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
-	m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(),m_downstreamTimer() {}
+  m_lastDataRateIndex(0), m_lastChannelIndex(0), m_lastCodeRate(0), m_lastSeen(0),
+  m_framePending(false),m_setAck(false), m_fCntUp(0), m_fCntDown(0),
+  m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
+  m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
+  m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(),m_downstreamTimer(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
+  m_ClassBdownstreamTimer(), m_ClassBPingSlots(2) {}
 
   Ipv4Address     m_deviceAddress;
-  uint8_t 	  m_rx1DROffset;
+  uint8_t     m_rx1DROffset;
   Ptr<LoRaWANGatewayApplication> m_lastDSGW;
   std::vector< Ptr<LoRaWANGatewayApplication> > m_lastGWs;
   uint8_t         m_lastDataRateIndex;
@@ -94,26 +95,35 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint32_t        m_fCntUp;       //!< Uplink frame counter
   uint32_t        m_fCntDown;     //!< Downlink frame counter
 
-  uint32_t 	  m_nUSPackets;   //!< The total number of received US packets
-  uint32_t 	  m_nUniqueUSPackets;   //!< Number of received unique US packets (i.e. with a new US frame counter)
+  uint32_t    m_nUSPackets;   //!< The total number of received US packets
+  uint32_t    m_nUniqueUSPackets;   //!< Number of received unique US packets (i.e. with a new US frame counter)
   uint32_t        m_nUSRetransmission;  //!< Number of upstream retransmission received
   uint32_t        m_nUSDuplicates;  //!< Number of upstream duplicates received
   uint32_t        m_nUSAcks;  //!< Number of upstream acks received
 
-  uint32_t 	  m_nDSPacketsGenerated;   //!< The total number of generated DS packets
-  uint32_t 	  m_nDSPacketsSent;   //!< The total number of sent DS packets
-  uint32_t 	  m_nDSPacketsSentRW1;   //!< The number of sent DS packets in RW1
-  uint32_t 	  m_nDSPacketsSentRW2;   //!< The number of sent DS packets in RW2
-  uint32_t 	  m_nDSRetransmission;   //!< Number of retransmissions sent for of DS packets
+  uint32_t    m_nDSPacketsGenerated;   //!< The total number of generated DS packets
+  uint32_t    m_nDSPacketsSent;   //!< The total number of sent DS packets
+  uint32_t    m_nDSPacketsSentRW1;   //!< The number of sent DS packets in RW1
+  uint32_t    m_nDSPacketsSentRW2;   //!< The number of sent DS packets in RW2
+  uint32_t    m_nDSRetransmission;   //!< Number of retransmissions sent for of DS packets
   uint32_t        m_nDSAcks;  //!< Number of downstream acks sent
 
-  EventId	  m_rw1Timer;
-  EventId	  m_rw2Timer;
+  EventId   m_rw1Timer;
+  EventId   m_rw2Timer;
 
   // Pending downstream traffic
   std::deque<LoRaWANNSDSQueueElement* > m_downstreamQueue;
 
-  EventId 	  m_downstreamTimer; // DS traffic generator timer
+  //////////////////////////////////
+  // Code in here has been added by Joe.
+  std::deque<LoRaWANNSDSQueueElement* > m_ClassBdownstreamQueue;
+  uint32_t    m_nClassBPacketsGenerated;   //!< The total number of generated DS packets
+  uint32_t    m_nClassBPacketsSent;   //!< The total number of sent DS packets
+  EventId     m_ClassBdownstreamTimer; // DS traffic generator timer
+  uint8_t     m_ClassBPingSlots; //number of ping slots per beacon period wanted by the device. Setting default as 2 for now, TODO: what is default in spec?
+  //////////////////////////////////
+
+  EventId     m_downstreamTimer; // DS traffic generator timer
 } LoRaWANEndDeviceInfoNS;
 
 //class LoRaWANNetworkServer : public SimpleRefCount<LoRaWANNetworkServer>
@@ -145,6 +155,13 @@ public:
   void DeleteFirstDSQueueElement (uint32_t deviceAddr);
 
   int64_t AssignStreams (int64_t stream);
+
+  //////////////////////////////////
+  // Code in here has been added by Joe.
+  void ClassBDSTimerExpired (uint32_t deviceAddr);
+  void ClassBSendBeacon ();
+  //////////////////////////////////
+
 private:
   static Ptr<LoRaWANNetworkServer> m_ptr;
   std::unordered_map <uint32_t, LoRaWANEndDeviceInfoNS> m_endDevices;
@@ -163,7 +180,28 @@ private:
   TracedCallback<uint32_t, uint8_t, uint8_t, Ptr<const Packet> > m_dsMsgAckdTrace;
   TracedCallback<uint32_t, uint8_t, uint8_t, Ptr<const Packet> > m_dsMsgDroppedTrace;
   TracedCallback<uint32_t, uint8_t, Ptr<const Packet>> m_usMsgReceivedTrace;
+
+  //////////////////////////////////
+
+  // Code in here has been added by Joe.
+
+    uint16_t m_ClassBpktSize;
+    Ptr<RandomVariableStream> m_ClassBdownstreamIATRandomVariable;
+    EventId     m_beaconTimer;
+    std::set<Ptr<LoRaWANGatewayApplication>> gateways;
+
+    //TODO: modify LoRaWANEndDeviceInfoNS to add another queue specifically for Class B downlinks (like second.m_downstreamQueue and second.m_nDSPacketsGenerated are used now)
+  //////////////////////////////////
 };
+
+
+
+
+
+
+
+
+
 
 class LoRaWANGatewayApplication : public Application
 {
@@ -234,7 +272,7 @@ private:
   uint64_t        m_maxBytes;     //!< Limit total number of bytes sent
   uint64_t        m_totBytes;     //!< Total bytes sent so far
 
-  uint8_t         m_framePort;	  //!< Frame port
+  uint8_t         m_framePort;    //!< Frame port
   uint32_t        m_fCntUp;       //!< Uplink frame counter
   uint32_t        m_fCntDown;     //!< Downlink frame counter
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
