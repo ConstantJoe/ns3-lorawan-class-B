@@ -750,6 +750,8 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
   //schedule ping slots for all devices
   for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
+
+
     /*
     period  = (2^32)/slots
     R = AES_128_enc(16x 0x00, Time | DevAddr | pad16)
@@ -761,6 +763,18 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     then the DL works similarly to the current DL function here, but with a set DR and channel. Closest GW is chosen.
     Calculate all slots first, then schedule them - that way conflicting slots (same time and gw) can be handled.
     */
+    uint64_t period = std::pow(2.0, 32) / d->second.m_ClassBPingSlots;
+    uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    
+    uint8_t buf[]  = { 0x6b, 0xc1, 0xbe, 0xe2, 0x6b, 0xc1, 0xbe, 0xe2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    //buf contains 32 bits of time, 32(?) bits of devaddr, and the rest padding
+    //Time format must be LSB of GPS time
+    
+    Ipv4Address devAddr = d->second.m_deviceAddress; //is this in the correct format?
+
+    //pad16 is to ensure the buffer is 16 bytes.
+
+    //What order do the bits go in?
   }
 
   //schedule next beacon
