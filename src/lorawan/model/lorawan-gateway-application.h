@@ -79,8 +79,8 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_framePending(false),m_setAck(false), m_fCntUp(0), m_fCntDown(0),
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
-  m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(),m_downstreamTimer(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBPingSlots(2) {}
+  m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
+  m_ClassBdownstreamTimer(), m_ClassBPingSlots(2), m_ClassBChannelIndex(0), m_ClassBDataRateIndex(0), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;
@@ -121,6 +121,8 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint32_t    m_nClassBPacketsSent;   //!< The total number of sent DS packets
   EventId     m_ClassBdownstreamTimer; // DS traffic generator timer
   uint8_t     m_ClassBPingSlots; //number of ping slots per beacon period wanted by the device. Setting default as 2 for now, TODO: what is default in spec?
+  uint8_t     m_ClassBChannelIndex;
+  uint8_t     m_ClassBDataRateIndex;  
   //////////////////////////////////
 
   EventId     m_downstreamTimer; // DS traffic generator timer
@@ -188,7 +190,11 @@ private:
     uint16_t m_ClassBpktSize;
     Ptr<RandomVariableStream> m_ClassBdownstreamIATRandomVariable;
     EventId     m_beaconTimer;
-    std::set<Ptr<LoRaWANGatewayApplication>> gateways;
+    std::set<Ptr<LoRaWANGatewayApplication>> m_gateways;
+    bool m_generateClassBDataDown;
+
+    uint8_t     m_ClassBBeaconChannelIndex;
+    uint8_t     m_ClassBBeaconDataRateIndex;
 
     //TODO: modify LoRaWANEndDeviceInfoNS to add another queue specifically for Class B downlinks (like second.m_downstreamQueue and second.m_nDSPacketsGenerated are used now)
   //////////////////////////////////

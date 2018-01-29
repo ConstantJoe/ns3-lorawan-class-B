@@ -41,6 +41,8 @@
 #include "ns3/string.h"
 #include "ns3/pointer.h"
 
+#include "aes.h"
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("LoRaWANGatewayApplication");
@@ -49,7 +51,7 @@ NS_OBJECT_ENSURE_REGISTERED (LoRaWANGatewayApplication);
 
 Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
 
-LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_ClassBdownstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0) {}
+LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(10), m_ClassBdownstreamIATRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0) {}
 
 TypeId
 LoRaWANNetworkServer::GetTypeId (void)
@@ -126,6 +128,14 @@ void
 LoRaWANNetworkServer::DoInitialize (void)
 {
   NS_LOG_FUNCTION (this);
+  std::cout << "testing!" << std::endl;
+  //begin broadcasting of beacons
+  //TODO: set exact time to start here
+  if(m_generateClassBDataDown){
+      Time t = Seconds (128);
+      m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
+      NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);  
+  }  
 
   Object::DoInitialize ();
 }
@@ -179,6 +189,14 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
   info.m_rx1DROffset = 0; // default
   info.m_setAck = false;
 
+  info.m_ClassBPingSlots = 4; //TODO: added by Joe, static for now.
+
+  std::ostringstream addrOss;
+  ipv4DevAddr.Print (addrOss);
+  std::string addrStr = addrOss.str();
+
+  std::cout << "address of node is: " << addrStr << std::endl; 
+
   if (m_generateDataDown) {
     Time t = Seconds (this->m_downstreamIATRandomVariable->GetValue ());
     info.m_downstreamTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::DSTimerExpired, this, key);
@@ -190,12 +208,6 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
     Time t = Seconds (this->m_ClassBdownstreamIATRandomVariable->GetValue ());
     info.m_ClassBdownstreamTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBDSTimerExpired, this, key);
     NS_LOG_DEBUG (this << " Class B DS Traffic Timer for node " << ipv4DevAddr << " scheduled at " << t);
-
-    //begin broadcasting of beacons
-    //TODO: set exact time to start here
-    Time t = Seconds (128);
-    m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
-    NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
   }
 
   return info;
@@ -218,8 +230,8 @@ LoRaWANNetworkServer::HandleUSPacket (Ptr<LoRaWANGatewayApplication> lastGW, Add
   NS_LOG_FUNCTION(this);
 
   // if lastGW has never been seen before, add it to vector of GWs. Get it to send beacons later if we're using Class B.
-  if(!gateways.find(lastGW)){
-    gateways.insert(lastGW);
+  if( m_gateways.find(lastGW) == m_gateways.end() ){
+    m_gateways.insert(lastGW);
   }
 
   // PacketSocketAddress fromAddress = PacketSocketAddress::ConvertFrom (from);
@@ -641,7 +653,7 @@ LoRaWANNetworkServer::AssignStreams (int64_t stream)
 {
   NS_LOG_FUNCTION (this << stream);
   m_downstreamIATRandomVariable->SetStream (stream);
-  m_ClassBdownstreamIATRandomVariable->->SetStream (stream); //TODO: should use a different stream?
+  m_ClassBdownstreamIATRandomVariable->SetStream (stream); //TODO: should use a different stream?
   return 1;
 }
 
@@ -735,13 +747,19 @@ LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
 void
 LoRaWANNetworkServer::ClassBSendBeacon (){
 
+  //Simulator::Now() can be used to get the current time right at this instance.
+  //This can be used to schedule a call to this method at exactly the right time
+  //so this method should send Now in the correct format (in reality, number of seconds since 1980, but as long as all nodes agree the crypto should still work)
+  //TODO: this is a marked difference between the simulation and real life
+  Time timestamp = Simulator::Now();
+
   //indicate to gateways to send a beacon at exact right time
   //TODO: store pointers of all discovered gateways so they can be used here.
 
   //then something like:
-  for (auto gw = gateways.cbegin(); gw != gateways.cend(); gw++) {
-    if ((*gw)->CanSendImmediatelyOnChannel (ClassBBeaconChannelIndex, ClassBBeaconDataRateIndex)) {
-      gw->SendBeacon(/*timestamp*/); //TODO: this function
+  for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
+    if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
+      //gw->SendBeacon(timestamp); //TODO: this function
     }
     else{
       //log err
@@ -750,8 +768,6 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
   //schedule ping slots for all devices
   for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
-
-
     /*
     period  = (2^32)/slots
     R = AES_128_enc(16x 0x00, Time | DevAddr | pad16)
@@ -763,22 +779,73 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     then the DL works similarly to the current DL function here, but with a set DR and channel. Closest GW is chosen.
     Calculate all slots first, then schedule them - that way conflicting slots (same time and gw) can be handled.
     */
+
     uint64_t period = std::pow(2.0, 32) / d->second.m_ClassBPingSlots;
+
     uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
     
-    uint8_t buf[]  = { 0x6b, 0xc1, 0xbe, 0xe2, 0x6b, 0xc1, 0xbe, 0xe2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    uint8_t buf[16];
     //buf contains 32 bits of time, 32(?) bits of devaddr, and the rest padding
     //Time format must be LSB of GPS time
     
-    Ipv4Address devAddr = d->second.m_deviceAddress; //is this in the correct format?
+    Ipv4Address devAddr = d->second.m_deviceAddress; //is this in the correct format? Do conversion from IPv4 to uint32_t
+    uint8_t addr[4];
+    devAddr.Serialize(addr);
+    buf[4] = addr[0];
+    buf[5] = addr[1];
+    buf[6] = addr[2];
+    buf[7] = addr[3];
 
-    //pad16 is to ensure the buffer is 16 bytes.
+    double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
+    uint32_t secsTruncated = (uint32_t) secs;
 
-    //What order do the bits go in?
+    //TODO: double check "endianness"
+    uint8_t *sp = (uint8_t *)&secsTruncated;
+
+    buf[0] = sp[0];
+    buf[1] = sp[1];
+    buf[2] = sp[2];
+    buf[3] = sp[3];
+    //(uint32_t&)*buf = secsTruncated; //TODO: ensure this is actually correct
+    //Conversion could be incorrect, or bytes could be in the wrong order.
+
+    //pad16 is to ensure the buffer is 16 bytes long
+    for(uint i=8; i<16;i++){
+      buf[i] = 0;
+    }
+
+    //struct AES_ctx ctx;
+
+    //AES_init_ctx(&ctx, key);
+    //AES_ECB_encrypt(&ctx, buf);
+
+    AES aes;
+
+    aes.SetKey(key, 16);
+    aes.Encrypt(buf, 16);
+
+    std::cout << "Unencrypted message: "; 
+    for(uint i=0; i<16;i++){
+      std::cout << buf[i];
+    }    
+    std::cout << std::endl;
+
+    std::cout << "Encrypted message: "; 
+    for(uint i=0; i<16;i++){
+      std::cout << buf[i];
+    }    
+    std::cout << std::endl;
+
+    uint64_t O = (buf[0] + buf[1]*256) % period;
+
+    std::cout << "Offset: " << O << std::endl;
+
+
   }
 
   //schedule next beacon
-  Time t = Seconds (128);
+  Time t = Seconds (128); //TODO: ensure this is accurate (record at start of function?)
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
@@ -819,7 +886,7 @@ void
 LoRaWANGatewayApplication::DoInitialize (void)
 {
   NS_LOG_FUNCTION (this);
-
+  std::cout << "testing!" << std::endl;
   this->m_lorawanNSPtr = LoRaWANNetworkServer::getLoRaWANNetworkServerPointer ();
 
   // chain up

@@ -70,6 +70,7 @@ SetupPacketReceive (Ptr<Node> node)
 
 int main (int argc, char *argv[])
 {
+  std::cout << "Test!" << std::endl;
   NodeContainer endDeviceNodes;
   NodeContainer gatewayNodes;
   NodeContainer allNodes;
@@ -91,6 +92,9 @@ int main (int argc, char *argv[])
   mobility.Install (allNodes);
 
   LoRaWANHelper lorawanHelper;
+
+  lorawanHelper.EnableLogComponents(LOG_LEVEL_ALL);
+
   lorawanHelper.SetNbRep(1);
   NetDeviceContainer lorawanEDDevices = lorawanHelper.Install (endDeviceNodes);
 
@@ -109,6 +113,9 @@ int main (int argc, char *argv[])
 
   // Note to self: PacketSocketHelper::Install adds a PacketSocketFactory
   // object as an aggregate object to each of the nodes in the NodeContainer
+
+  // are the application level classes being used here??
+  // no - use a different application level to what's currently being used here (not OnOffHelper)
   PacketSocketHelper packetSocket;
   packetSocket.Install (endDeviceNodes);
   packetSocket.Install (gatewayNodes);
@@ -133,7 +140,7 @@ int main (int argc, char *argv[])
 
   Ptr<Socket> recvSink = SetupPacketReceive (gatewayNodes.Get (0));
 
-  Simulator::Stop (Seconds (100.0));
+  Simulator::Stop (Seconds (1000.0));
 
   Simulator::Run ();
 

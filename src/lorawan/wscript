@@ -22,6 +22,7 @@ def build(bld):
         'model/lorawan-phy.cc',
 	'model/lorawan-spectrum-signal-parameters.cc',
 	'model/lorawan-spectrum-value-helper.cc',
+        'model/aes.cc',
         'helper/lorawan-helper.cc',
         ]
 
@@ -52,6 +53,7 @@ def build(bld):
         'model/lorawan-phy.h',
 	'model/lorawan-spectrum-signal-parameters.h',
 	'model/lorawan-spectrum-value-helper.h',
+        'model/aes.h',
         'helper/lorawan-helper.h',
         ]
 
