@@ -51,7 +51,7 @@ NS_OBJECT_ENSURE_REGISTERED (LoRaWANGatewayApplication);
 
 Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
 
-LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(10), m_ClassBdownstreamIATRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0) {}
+LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0) {}
 
 TypeId
 LoRaWANNetworkServer::GetTypeId (void)
@@ -751,12 +751,30 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   //This can be used to schedule a call to this method at exactly the right time
   //so this method should send Now in the correct format (in reality, number of seconds since 1980, but as long as all nodes agree the crypto should still work)
   //TODO: this is a marked difference between the simulation and real life
+  
+
+  /*TODO:
+    The encryption works, BUT:
+    the format of the devAddr is not the same as in LoRaWAN
+    Need to double check the endianness that the timestamp and devaddr are inserted into the buffer with
+    timestamp is current number of seconds since simulation began, not GMT time
+    the gateway send of the beacons (add in gw part, then reference here.)
+    gateway function should be given a timestamp + x to schedule the gateway, in order to ensure simultaneous sends
+    don't use cout, use logging
+
+    all of these things shouldn't affect the functionality of the method (as long as ping slot calculation is performed the same on end devices) 
+    but they are all marked differences between the simulation and real life
+
+    also: actually store the ping periods, and use them to schedule firings of ClassBDSTimerExpired
+  */
+  std::cout << "In Class B beacon!" << std::endl;
+
+
   Time timestamp = Simulator::Now();
 
-  //indicate to gateways to send a beacon at exact right time
-  //TODO: store pointers of all discovered gateways so they can be used here.
+  std::cout << "Current time is " << timestamp << std::endl;
 
-  //then something like:
+  //indicate to gateways to send a beacon at exact right time
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
     if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
       //gw->SendBeacon(timestamp); //TODO: this function
@@ -780,16 +798,12 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     Calculate all slots first, then schedule them - that way conflicting slots (same time and gw) can be handled.
     */
 
-    uint64_t period = std::pow(2.0, 32) / d->second.m_ClassBPingSlots;
-
-    uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-    
+    uint64_t period = std::pow(2.0, 12) / d->second.m_ClassBPingSlots;
+    uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
     uint8_t buf[16];
-    //buf contains 32 bits of time, 32(?) bits of devaddr, and the rest padding
-    //Time format must be LSB of GPS time
+
     
-    Ipv4Address devAddr = d->second.m_deviceAddress; //is this in the correct format? Do conversion from IPv4 to uint32_t
+    Ipv4Address devAddr = d->second.m_deviceAddress;
     uint8_t addr[4];
     devAddr.Serialize(addr);
     buf[4] = addr[0];
@@ -800,46 +814,47 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
     uint32_t secsTruncated = (uint32_t) secs;
 
-    //TODO: double check "endianness"
     uint8_t *sp = (uint8_t *)&secsTruncated;
 
     buf[0] = sp[0];
     buf[1] = sp[1];
     buf[2] = sp[2];
     buf[3] = sp[3];
-    //(uint32_t&)*buf = secsTruncated; //TODO: ensure this is actually correct
-    //Conversion could be incorrect, or bytes could be in the wrong order.
 
     //pad16 is to ensure the buffer is 16 bytes long
     for(uint i=8; i<16;i++){
       buf[i] = 0;
     }
 
-    //struct AES_ctx ctx;
-
-    //AES_init_ctx(&ctx, key);
-    //AES_ECB_encrypt(&ctx, buf);
+    /*std::cout << "Unencrypted message: "; 
+    for(uint i=0; i<16;i++){
+      printf("%x ", buf[i]);;
+    }    
+    std::cout << std::endl;*/
 
     AES aes;
 
     aes.SetKey(key, 16);
     aes.Encrypt(buf, 16);
 
-    std::cout << "Unencrypted message: "; 
+    /*std::cout << "Encrypted message: "; 
     for(uint i=0; i<16;i++){
-      std::cout << buf[i];
+      printf("%x ", buf[i]);
+      //std::cout << std::hex << buf[i];
     }    
     std::cout << std::endl;
 
-    std::cout << "Encrypted message: "; 
-    for(uint i=0; i<16;i++){
-      std::cout << buf[i];
-    }    
-    std::cout << std::endl;
+    std::cout << std::dec;*/
 
+   
     uint64_t O = (buf[0] + buf[1]*256) % period;
 
-    std::cout << "Offset: " << O << std::endl;
+    /*printf("%d ", period);
+    printf("%d ", O);*/
+
+    //std::cout << "Offset: " << O << std::endl;
+
+
 
 
   }
@@ -847,6 +862,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   //schedule next beacon
   Time t = Seconds (128); //TODO: ensure this is accurate (record at start of function?)
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
+  std::cout << "Class B beacon scheduled!" << std::endl;
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
 

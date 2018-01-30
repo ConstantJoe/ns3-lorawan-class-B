@@ -24,6 +24,8 @@ def build(bld):
 	'model/lorawan-spectrum-value-helper.cc',
         'model/aes.cc',
         'helper/lorawan-helper.cc',
+        'helper/lorawan-gateway-helper.cc',
+        'helper/lorawan-enddevice-helper.cc'
         ]
 
     module_test = bld.create_ns3_module_test_library('lorawan')
@@ -55,6 +57,8 @@ def build(bld):
 	'model/lorawan-spectrum-value-helper.h',
         'model/aes.h',
         'helper/lorawan-helper.h',
+        'helper/lorawan-gateway-helper.h',
+        'helper/lorawan-enddevice-helper.h'
         ]
 
     if bld.env.ENABLE_EXAMPLES:

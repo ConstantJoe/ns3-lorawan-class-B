@@ -93,7 +93,7 @@ int main (int argc, char *argv[])
 
   LoRaWANHelper lorawanHelper;
 
-  lorawanHelper.EnableLogComponents(LOG_LEVEL_ALL);
+  //lorawanHelper.EnableLogComponents(LOG_LEVEL_ALL);
 
   lorawanHelper.SetNbRep(1);
   NetDeviceContainer lorawanEDDevices = lorawanHelper.Install (endDeviceNodes);
@@ -126,17 +126,34 @@ int main (int argc, char *argv[])
   // socket.SetPhysicalAddress (lorawanGWDevices.Get (0)->GetAddress ()); // Set destination address
   //socket.SetProtocol (1); // Set the protocol
 
-  OnOffHelper onoff ("ns3::PacketSocketFactory", Address (socket));
+  /*OnOffHelper onoff ("ns3::PacketSocketFactory", Address (socket));
   onoff.SetAttribute ("OnTime", StringValue ("ns3::ExponentialRandomVariable[Mean=100]"));
   onoff.SetAttribute ("OffTime", StringValue ("ns3::ExponentialRandomVariable[Mean=10]"));
-  //onoff.SetAttribute ("DataRate", DataRateValue (DataRate ("0.4Mbps")));
-  //onoff.SetAttribute ("DataRate", DataRateValue (DataRate (3*8))); // 3 bytes per second
+  onoff.SetAttribute ("DataRate", DataRateValue (DataRate ("0.4Mbps")));
+  onoff.SetAttribute ("DataRate", DataRateValue (DataRate (3*8))); // 3 bytes per second
   onoff.SetAttribute ("DataRate", DataRateValue (DataRate (6*8))); // 3 bytes per second
   onoff.SetAttribute ("PacketSize", UintegerValue (30));
 
-  ApplicationContainer apps = onoff.Install (endDeviceNodes.Get (0));
-  apps.Start (Seconds (0.0));
-  apps.Stop (Seconds (100));
+  ApplicationContainer apps = onoff.Install (endDeviceNodes.Get (0));*/
+
+  LoRaWANGatewayHelper gatewayhelper;
+  //leaving attributes set static for now
+  ApplicationContainer gatewayApps = gatewayhelper.Install (gatewayNodes);
+
+  LoRaWANEndDeviceHelper enddevicehelper;
+  //leaving attributes set to default for now
+  ApplicationContainer enddeviceApps = enddevicehelper.Install (endDeviceNodes);
+
+  /*apps.Start (Seconds (0.0));
+  apps.Stop (Seconds (100));*/
+
+  //gatewayApps.Start (Seconds (0.0));
+  //gatewayApps.Stop (Seconds (100));
+  
+  enddeviceApps.Start (Seconds (0.0));
+  enddeviceApps.Stop (Seconds (100));
+
+
 
   Ptr<Socket> recvSink = SetupPacketReceive (gatewayNodes.Get (0));
 

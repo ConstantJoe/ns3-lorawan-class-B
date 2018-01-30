@@ -29,6 +29,8 @@
 #include "ns3/traced-value.h"
 #include "ns3/simple-ref-count.h"
 #include "ns3/random-variable-stream.h"
+
+#include "ns3/lorawan.h"
 #include <unordered_map>
 #include <deque>
 
