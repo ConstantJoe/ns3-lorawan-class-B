@@ -584,6 +584,7 @@ private:
   uint8_t m_codeRate; // only for TX
   uint8_t m_preambleLength;
   bool m_crcOn;
+
 }; // class LoRaWANPhy
 
 

@@ -130,6 +130,18 @@ private:
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
   uint64_t        m_totalRx;      //!< Total bytes received
 
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  //Part of Class B implementation (added by Joe)
+
+  void ClassBReceiveBeacon ();
+
+  bool m_isClassB;                //!< specifies Class B, (wakes up for beacons and ping slots, sets bit in uplink packets)
+  EventId     m_beaconTimer;      //Beacon event
+  uint8_t     m_ClassBPingSlots;
+
+  /////////////////////////////////////////////////////////////////////////////////////
+
   /// Traced Callback: transmitted packets.
   TracedCallback<uint32_t, uint8_t, Ptr<const Packet>> m_usMsgTransmittedTrace;
 

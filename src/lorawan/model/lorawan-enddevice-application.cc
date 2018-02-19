@@ -117,7 +117,8 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntUp (0),
     m_fCntDown (0),
     m_setAck (false),
-    m_totalRx (0)
+    m_totalRx (0),
+    m_ClassBPingSlots (2) //CLASS B change
 {
   NS_LOG_FUNCTION (this);
 
@@ -209,6 +210,21 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
 
   // Insure no pending event
   CancelEvents ();
+
+
+  //////////////////////////////////////////////
+  //Part of Class B implementation (added by Joe)
+ /* if(m_isClassB)
+  {
+      //schedule event to wake up at exact time of next expected beacon
+      //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
+      Time t = Seconds (128);
+      m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
+      NS_LOG_DEBUG (this << " Class B beacon " << "scheduled to be received at " << t);  
+  }*/
+
+  //////////////////////////////////////////////
+
   // If we are not yet connected, there is nothing to do here
   // The ConnectionComplete upcall will start timers at that time
   //if (!m_connected) return;
@@ -260,6 +276,7 @@ void LoRaWANEndDeviceApplication::SendPacket ()
 {
   NS_LOG_FUNCTION (this);
 
+  std::cout << "Sending Class A packet from end device!" << std::endl;
   NS_ASSERT (m_txEvent.IsExpired ());
 
   Ipv4Address myAddress = Ipv4Address::ConvertFrom (GetNode ()->GetDevice (0)->GetAddress ());
@@ -333,8 +350,13 @@ void LoRaWANEndDeviceApplication::SendPacket ()
         << " total Tx " << m_totBytes << " bytes");
   }
 
+
+
+
   m_lastTxTime = Simulator::Now ();
   ScheduleNextTx ();
+
+  std::cout << "Finished sending!" << std::endl;
 }
 
 void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
@@ -413,5 +435,106 @@ void LoRaWANEndDeviceApplication::ConnectionFailed (Ptr<Socket> socket)
   NS_LOG_FUNCTION (this << socket);
   NS_FATAL_ERROR (this << " Connection failed");
 }
+
+
+
+
+//////////////////////////////////////////////
+  //Part of Class B implementation (added by Joe)
+void
+LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
+{
+  //for the MAC layer - the m_LoRaWANMacState should be for Class A only, a different state variable should be used for class B
+  // in this way, Class A and Class B functionality will operate independently (apart from when there's a simultanous request), like in LoRaWAN
+  //so the ClassBReceiveBeacon function (controls timing) calls a MAC layer function which is similar to OpenRW, but not based on same state system
+  //calculate preamble time should be modified too to account for longer preamble in beacons
+
+  //call method in MAC layer indicating time for Class B beacon
+  //TODO: is this bad practice? This links this application layer to the lower level LoRaWAN layers.
+  //but will these application layers ever really be used with an alternative PHY layer?
+  //unlikely, but I guess its possible. Talk to Shahwaiz about this. If we decide not to do this, then the original authors' gateway version will also have to be changed. 
+  //If we do decide to do this, then save the MAC layer as a variable,
+  Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
+  netDevice->GetMac()->ReceiveBeacon();
+
+   
+
+  //schedule next beacon receive.
+  Time t = Seconds (128); //TODO: ensure this is accurate (record at start of function?)
+  m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
+  std::cout << "Class B beacon scheduled!" << std::endl;
+  NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
+}
+
+void
+LoRaWANEndDeviceApplication::ClassBSchedulePingSlots ()
+{
+  //TODO: this function should be fired from the MAC layer when the beacon is received (set the callback?)
+  //should function identically to the Network Server equivalent.
+
+    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;
+    uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
+    uint8_t buf[16];
+
+    
+    //Ipv4Address devAddr = d->second.m_deviceAddress;
+    Ipv4Address devAddr = GetNode ()->GetDevice (0)->GetIfIndex (); //TODO: ensure this is correct.
+    uint8_t addr[4];
+    devAddr.Serialize(addr);
+    buf[4] = addr[0];
+    buf[5] = addr[1];
+    buf[6] = addr[2];
+    buf[7] = addr[3];
+
+    double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
+    uint32_t secsTruncated = (uint32_t) secs;
+
+    uint8_t *sp = (uint8_t *)&secsTruncated;
+
+    buf[0] = sp[0];
+    buf[1] = sp[1];
+    buf[2] = sp[2];
+    buf[3] = sp[3];
+
+    //pad16 is to ensure the buffer is 16 bytes long
+    for(uint i=8; i<16;i++){
+      buf[i] = 0;
+    }
+
+    /*std::cout << "Unencrypted message: "; 
+    for(uint i=0; i<16;i++){
+      printf("%x ", buf[i]);;
+    }    
+    std::cout << std::endl;*/
+
+    AES aes;
+
+    aes.SetKey(key, 16);
+    aes.Encrypt(buf, 16);
+
+    /*std::cout << "Encrypted message: "; 
+    for(uint i=0; i<16;i++){
+      printf("%x ", buf[i]);
+      //std::cout << std::hex << buf[i];
+    }    
+    std::cout << std::endl;
+
+    std::cout << std::dec;*/
+
+   
+    uint64_t O = (buf[0] + buf[1]*256) % period;
+
+    /*printf("%d ", period);
+    printf("%d ", O);*/
+
+    //std::cout << "Offset: " << O << std::endl;
+
+    //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
+    //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
+}
+
+
+//////////////////////////////////////////////
+
 
 } // Namespace ns3

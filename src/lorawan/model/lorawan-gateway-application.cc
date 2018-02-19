@@ -765,7 +765,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     all of these things shouldn't affect the functionality of the method (as long as ping slot calculation is performed the same on end devices) 
     but they are all marked differences between the simulation and real life
 
-    also: actually store the ping periods, and use them to schedule firings of ClassBDSTimerExpired
+    
   */
   std::cout << "In Class B beacon!" << std::endl;
 
@@ -777,7 +777,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   //indicate to gateways to send a beacon at exact right time
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
     if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
-      //gw->SendBeacon(timestamp); //TODO: this function
+      //gw->SendBeacon(timestamp); //TODO: is it better to send this timestamp, or schedule an exact time for all to send a timestamp? Decide later
     }
     else{
       //log err
@@ -854,8 +854,8 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
     //std::cout << "Offset: " << O << std::endl;
 
-
-
+    //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
+    //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
 
   }
 
@@ -1072,4 +1072,53 @@ void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
   NS_LOG_FUNCTION (this << socket);
 }
 
+
+////////////////////////////////////////////////////////////
+//Modifications added by Joe to enable Class B
+
+/*void LoRaWANGatewayApplication::SendBeacon (Time timestamp)
+{
+  // Get location from mobility model
+  // the mobility model has a getPosition function.
+  // get the current node attached to this gateway application, then get the mobility model attached to that node, then call getPosition
+  // the position expected is GPS coordinates 
+
+  // build a beacon frame
+  // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be build in the gateway, as some parameters are gateway dependent
+  // beacon frame MUST have a longer preamble
+  // beacon frame MUST be transmitted in radio packet implicit mode (no LoRa physical header, no CRC appended by the radio)
+  // crc must be calculated - check in spec for exact algorithm
+
+  // broadcast the frame
+  // use set DR, CR, and channel (maybe given from NS?)
+  // don't schedule any rx1 or rx2 check
+
+  // the beacon payload is in this format (EU868 only):
+  // 2   4    2   7          2
+  // RFU Time CRC GwSpecific CRC
+
+  // RFU is 0 0
+  // Time is seconds in GPS
+  // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
+  // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
+  // and so the two byte CRC would be calculated on [00 00 00 00 02 CC]
+  // talk to Stephen before implementation 
+
+  // GwSpecific gives GPS coordinates of the gateway
+  // first byte: 0, 1, 2 specify GPS coordinates of 1st, 2nd, 3rd antennas respectively 
+  // 3:127 are RFU
+  // 128:255 are reserved for custom network specific broadcasts (TODO: we can use this?)
+  // for now in our simulations we can assume first byte is 0.
+  // the other 6 bytes encode the latitude and longitude of the antenna in a two's complement 24 bit word.
+
+
+}*/
+
+
+
+
+////////////////////////////////////////////////////////////
+
 } // Namespace ns3
+
+

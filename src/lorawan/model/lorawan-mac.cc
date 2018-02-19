@@ -254,6 +254,7 @@ LoRaWANMac::SetRX1DROffset (uint8_t offset)
 void
 LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
 {
+   std::cout << "Changing state!" << std::endl;
   NS_LOG_FUNCTION (this << macState);
 
   if (macState == MAC_IDLE) {
@@ -419,7 +420,10 @@ void
 LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate)
 {
   // TODO: which state?
-  //
+
+  // TODO: this function is called when a packet is fully received. Modify to include possibility of Class B beacon or frame.
+  
+   std::cout << "Pd Data Indication!" << std::endl;
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
     NS_ASSERT (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2); // gateway would be in MAC_IDLE, class A in either RW1 or RW2
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
@@ -782,6 +786,7 @@ LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
 void
 LoRaWANMac::CheckQueue ()
 {
+   std::cout << "Checking queue!" << std::endl;
   NS_LOG_FUNCTION (this);
 
   // Check if we can send a packet: MAC State, Phy state and RDC
@@ -986,6 +991,7 @@ LoRaWANMac::SubBandTimerCallback ()
 void
 LoRaWANMac::OpenRW ()
 {
+   std::cout << "Open RW!" << std::endl;
   NS_LOG_FUNCTION (this);
 
   NS_ASSERT (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A);
@@ -1081,7 +1087,10 @@ LoRaWANMac::CloseRW ()
     } else {
       m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
     }
-  } else {
+  } 
+  //TODO: add in something here to indicate Class B receive failed.
+
+  else {
     NS_LOG_ERROR (this << " MAC state incorrect " << m_LoRaWANMacState);
     return;
   }
@@ -1257,4 +1266,36 @@ LoRaWANMac::AssignStreams (int64_t stream)
   m_ackTimeOutRandomVariable->SetStream (stream);
   return 1;
 }
+
+
+
+//////////////////////////////////////////////
+//wake up to receive Class B beacon.  Based on OpenRW
+void
+LoRaWANMac::ReceiveBeacon ()
+{
+    uint8_t channelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
+    // Note: this also appears to be the only channel outside of the main subband? 
+    uint8_t dataRateIndex = 3;  // SF9, 125kHz BW. Mandetory for Class B beacons.
+    uint8_t subBandIndex = LoRaWAN::m_supportedChannels [channelIndex].m_subBandIndex;
+    uint8_t maxTxPower = m_lorawanMacRDC->GetMaxPowerForSubBand (subBandIndex);
+
+
+    //similar to how it is done for class A, but channel, dr, subband are set values, preamble length is 10, and CRC is OFF.
+    // TODO: I've set ImplicitHeader to true, here, as "beacons are sent without a LoRa physical header". Double check this is correct.
+    // TODO: also modify implicitheader part of SetTxConf to stop a failure w/o explicit header.
+    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, 3, 10, true, false) ) {
+      NS_LOG_ERROR (this << " unable to configure Phy");
+      return;
+    }
+
+    // Instruct Phy to listen for LoRa frame preamble
+    m_phy->SetTRXStateRequest (LORAWAN_PHY_RX_ON);
+
+    Time preambleTime = m_phy->CalculatePreambleTime ();
+    m_preambleDetected = Simulator::Schedule (preambleTime, &LoRaWANMac::CheckPhyPreamble, this);
+} 
+
+//////////////////////////////////////////////
+
 } // namespace ns3
