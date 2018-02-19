@@ -113,11 +113,6 @@ LoRaWANPhy::LoRaWANPhy (uint8_t index)
   m_preambleLength = 8;
   m_crcOn = true;
 
-  ////////////////////////////////////////////////////////////////////////////////
-  // CLASS B
-  m_beaconPreambleLength = 10; 
-  ////////////////////////////////////////////////////////////////////////////////
-
   // receiver sensitivity depends on LoRa modulation parameters according to Semtech
   // However, we don't use sensitivity in our PHY modelling as we don't do any
   // energy detection or carrier sensing
