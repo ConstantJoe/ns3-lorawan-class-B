@@ -1270,6 +1270,13 @@ LoRaWANMac::AssignStreams (int64_t stream)
 
 
 //////////////////////////////////////////////
+//send Class B beacon.  Based on...
+void
+LoRaWANMac::SendBeacon ()
+{
+
+}
+
 //wake up to receive Class B beacon.  Based on OpenRW
 void
 LoRaWANMac::ReceiveBeacon ()

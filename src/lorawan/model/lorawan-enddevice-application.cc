@@ -449,6 +449,9 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   //so the ClassBReceiveBeacon function (controls timing) calls a MAC layer function which is similar to OpenRW, but not based on same state system
   //calculate preamble time should be modified too to account for longer preamble in beacons
 
+  //TODO: actually - this is a bad idea. There should be one state system, and then errlog whenever there is a clash. 
+  //write out all the states
+
   //call method in MAC layer indicating time for Class B beacon
   //TODO: is this bad practice? This links this application layer to the lower level LoRaWAN layers.
   //but will these application layers ever really be used with an alternative PHY layer?

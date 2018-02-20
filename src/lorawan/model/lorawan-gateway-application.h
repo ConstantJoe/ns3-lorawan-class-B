@@ -257,6 +257,11 @@ public:
 
   bool CanSendImmediatelyOnChannel (uint8_t channelIndex, uint8_t dataRateIndex);
   void SendDSPacket (Ptr<Packet> p);
+
+
+  ////////////////////////////////////////////////////////////
+  void SendBeacon (Time timestamp);
+  ////////////////////////////////////////////////////////////
 protected:
   virtual void DoInitialize (void);
   virtual void DoDispose (void);

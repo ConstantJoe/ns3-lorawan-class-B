@@ -370,7 +370,7 @@ LoRaWANNetworkServer::RW1TimerExpired (uint32_t deviceAddr)
   bool foundGW = false;
   // The RW1 LoRa channel and data rate are the same as used in the last US transmission
   const uint8_t dsChannelIndex = it_ed->second.m_lastChannelIndex;
-  const uint8_t dsDataRateIndex = it_ed->second.m_lastDataRateIndex;;
+  const uint8_t dsDataRateIndex = it_ed->second.m_lastDataRateIndex;
   for (auto it_gw = it_ed->second.m_lastGWs.cbegin(); it_gw != it_ed->second.m_lastGWs.cend(); it_gw++) {
     if ((*it_gw)->CanSendImmediatelyOnChannel (dsChannelIndex, dsDataRateIndex)) {
       foundGW = true;
@@ -1076,33 +1076,58 @@ void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
 ////////////////////////////////////////////////////////////
 //Modifications added by Joe to enable Class B
 
-/*void LoRaWANGatewayApplication::SendBeacon (Time timestamp)
+// timestamp is the number of seconds in GPS time % 2^32
+void 
+LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
 {
   // Get location from mobility model
   // the mobility model has a getPosition function.
   // get the current node attached to this gateway application, then get the mobility model attached to that node, then call getPosition
-  // the position expected is GPS coordinates 
+  Vector position;
+  Ptr<MobilityModel> mobility = GetNode()->GetObject<MobilityModel>();
+  if (mobility){
+    position = mobility->GetPosition();
+  }
+  else
+  {
+    position = Vector(0,0,0);
+  }
+  
+  // the position returned is in the format (x,y,z), in Carthesian coordinates (all doubles). 24 byte words for GPS latitude and longitude are expected in real LoRaWAN beacons
+  // but as we are not planning to currently use the location data we will just use the first (LSB) 24 bytes of the position given in the mobility model 
 
+
+  //TODO: below is (likely) the correct payload format. But a Packet object should be used instead of a buffer. Then pass the PhyParams to the packet and call SendDSPacket
   // build a beacon frame
-  // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be build in the gateway, as some parameters are gateway dependent
-  // beacon frame MUST have a longer preamble
-  // beacon frame MUST be transmitted in radio packet implicit mode (no LoRa physical header, no CRC appended by the radio)
+  // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be built in the gateway, as some parameters are gateway dependent
   // crc must be calculated - check in spec for exact algorithm
 
-  // broadcast the frame
-  // use set DR, CR, and channel (maybe given from NS?)
-  // don't schedule any rx1 or rx2 check
+  uint8_t beacon[17];
 
   // the beacon payload is in this format (EU868 only):
   // 2   4    2   7          2
   // RFU Time CRC GwSpecific CRC
 
-  // RFU is 0 0
+  // RFU is 0,0
+  beacon[0] = 0x00;
+  beacon[1] = 0x00;
+
   // Time is seconds in GPS
+  // the timestamp given as a parameter to this function is that GPS time
+  // TODO: double check the values are going in in the right order
+  // putting them in LSB first
+  beacon[2] = (timestamp >> 0);
+  beacon[3] = (timestamp >> 8);
+  beacon[4] = (timestamp >> 16);
+  beacon[5] = (timestamp >> 24);
+
+  // CRC check is complex / confusing, 
   // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
   // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
   // and so the two byte CRC would be calculated on [00 00 00 00 02 CC]
-  // talk to Stephen before implementation 
+  // talk to Stephen before implementation
+  beacon[6] = 0x00;
+  beacon[7] = 0x00;
 
   // GwSpecific gives GPS coordinates of the gateway
   // first byte: 0, 1, 2 specify GPS coordinates of 1st, 2nd, 3rd antennas respectively 
@@ -1110,9 +1135,43 @@ void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
   // 128:255 are reserved for custom network specific broadcasts (TODO: we can use this?)
   // for now in our simulations we can assume first byte is 0.
   // the other 6 bytes encode the latitude and longitude of the antenna in a two's complement 24 bit word.
+  beacon[8] = 0x00;
+  
+  // convert a 64-bit double to an unsigned 32-bit int. Then put the lowest 24 bits into the buffer. Works fine up to 2^32
+  // TODO: note that this is not related to the proper LoRaWAN method.
+  //lat
+  double lat_d = position[0]; //TODO: probably accessing this wrong
+  lat_d += 6755399441055744.0;
+  uint32_t lat = reinterpret_cast<uint32_t&>(lat_d);
+  beacon[9] = (lat >> 0);
+  beacon[10] = (lat >> 8);
+  beacon[11] = (lat >> 16);
+
+  //long
+  double longi_d = position[1]; //TODO: probably accessing this wrong
+  longi_d += 6755399441055744.0;
+  uint32_t longi = reinterpret_cast<uint32_t&>(lat_d);
+  beacon[12] = (longi >> 0);
+  beacon[13] = (longi >> 8);
+  beacon[14] = (longi >> 16);
+
+  //then another CRC check
+  beacon[15] = 0x00;
+  beacon[16] = 0x00;
 
 
-}*/
+  
+  // MAC layer stuff:
+  // beacon frame MUST have a longer preamble
+  // beacon frame MUST be transmitted in radio packet implicit mode (no LoRa physical header, no CRC appended by the radio)
+  // broadcast the frame
+  // use set DR, CR, and channel (maybe given from NS?)
+  // don't schedule any rx1 or rx2 check
+
+
+  // then pass this beacon to the MAC layer
+  gatewayPtr->SendDSPacket (p);
+}
 
 
 
