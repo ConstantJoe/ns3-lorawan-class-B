@@ -43,6 +43,7 @@ operator<< (std::ostream& os, const LoRaWANDataRequestParams& p)
     << static_cast<uint32_t> (p.m_loraWANChannelIndex)
     << "," << static_cast<uint32_t> (p.m_loraWANDataRateIndex)
     << "," << static_cast<uint32_t> (p.m_loraWANCodeRate)
+    << "," << static_cast<uint32_t> (p.m_loraWANPreambleLength)
     << "," << static_cast<uint32_t> (p.m_msgType)
     << "," << static_cast<uint32_t> (p.m_requestHandle)
     << "," << static_cast<uint32_t> (p.m_numberOfTransmissions)
@@ -417,7 +418,7 @@ LoRaWANMac::PdDataDestroyed (void)
 }
 
 void
-LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate)
+LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate, uint8_t preambleLength)
 {
   // TODO: which state?
 
@@ -522,6 +523,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
     params.m_channelIndex = channelIndex;
     params.m_dataRateIndex = dataRateIndex;
     params.m_codeRate = codeRate;
+    params.m_preambleLength = preambleLength;
     params.m_msgType = macHdr.getLoRaWANMsgType ();
     params.m_endDeviceAddress = frameHdr.getDevAddr (); // Note that a gateway can not access the Dev Addr due to encryption of the MACPayload
     params.m_MIC = MIC;
@@ -775,6 +777,7 @@ LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
   LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
   p->AddHeader (lorawanMacHdr);
 
+  //TODO: MIC is not included in beacons
   // 4B MIC
   uint32_t size = p->GetSize ();
   p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
@@ -931,9 +934,16 @@ LoRaWANMac::ConfigurePhyForTX () {
     uint8_t dataRateIndex = txQElement->lorawanDataRequestParams.m_loraWANDataRateIndex;
     uint8_t codeRate = txQElement->lorawanDataRequestParams.m_loraWANCodeRate;
 
+    /////////////////////////////////
+    uint8_t preambleLength = txQElement->lorawanDataRequestParams.m_loraWANPreambleLength;
+
+    bool implicitHeader = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? true : false;
+    bool crcOn = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? true : false;
+    /////////////////////////////////
+
     uint8_t subBandIndex = LoRaWAN::m_supportedChannels[txQElement->lorawanDataRequestParams.m_loraWANChannelIndex].m_subBandIndex; // Sub band belonging to channel
     uint8_t maxTxPower = m_lorawanMacRDC->GetMaxPowerForSubBand (subBandIndex);
-    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, codeRate, 8, false, true) ) {
+    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, codeRate, preambleLength, implicitHeader, crcOn) ) {
       NS_LOG_ERROR (this << " unable to configure Phy");
       return false;
     } else {

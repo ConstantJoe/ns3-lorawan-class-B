@@ -103,6 +103,11 @@ struct LoRaWANDataRequestParams
 {
   uint8_t m_loraWANChannelIndex; 	//!< Index of LoRaWAN channel
   uint8_t m_loraWANDataRateIndex; 	//!< Index of LoRa Data Rate
+
+  ////////////////////////////////
+  uint8_t m_loraWANPreambleLength;
+  ////////////////////////////////
+
   //LoRaWANChannel m_loraWANChannel; 				//!< LoRaWAN channel
   //LoRaWANDataRate m_loraWANDataRate;
   uint8_t m_loraWANCodeRate;			//!< Code rate of transmission
@@ -133,6 +138,10 @@ struct LoRaWANDataIndicationParams
   uint8_t m_channelIndex;		//!< Channel index of received transmission
   uint8_t m_dataRateIndex;		//!< Data rate index of received transmission
   uint8_t m_codeRate;			//!< Code rate of received transmission
+
+  ////////////////////////////////
+  uint8_t m_preambleLength;
+  ////////////////////////////////
 
   LoRaWANMsgType m_msgType; 		//!< Message Type
   Ipv4Address m_endDeviceAddress; 	//!< End Device Address
@@ -267,7 +276,7 @@ public:
   void SwitchToIdleState ();
 
   void PdDataDestroyed (void);
-  void PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate);
+  void PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate, uint8_t preambleLength);
 
   /**
    *  Report status of Phy TRX state switch to MAC

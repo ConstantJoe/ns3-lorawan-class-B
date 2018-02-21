@@ -530,10 +530,12 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   uint8_t channelIndex = 0;
   uint8_t dataRateIndex = 0;
   uint8_t codeRate = 0;
+  uint8_t preambleLength = 0;
   if (packet->RemovePacketTag (phyParamsTag)) {
     channelIndex = phyParamsTag.GetChannelIndex ();
     dataRateIndex = phyParamsTag.GetDataRateIndex ();
     codeRate = phyParamsTag.GetCodeRate ();
+    preambleLength = phyParamsTag.GetPreambleLength ();
   }
 
   LoRaWANMsgType msgType = LORAWAN_UNCONFIRMED_DATA_UP;
@@ -547,6 +549,10 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   loRaWANDataRequestParams.m_loraWANChannelIndex = channelIndex;
   loRaWANDataRequestParams.m_loraWANDataRateIndex = dataRateIndex;
   loRaWANDataRequestParams.m_loraWANCodeRate = codeRate;
+  //////////////////////////////////
+  loRaWANDataRequestParams.m_loraWANpreambleLength = preambleLength;
+  //////////////////////////////////
+  
   loRaWANDataRequestParams.m_requestHandle = 0; // TODO
   loRaWANDataRequestParams.m_numberOfTransmissions = 1;
   if (msgType == LORAWAN_CONFIRMED_DATA_UP) // note that for LORAWAN_CONFIRMED_DATA_DOWN the network server will call ::Send for every retransmission, for end devices ::Send is only called once (app retransmissions vs mac retransmissions)
@@ -554,11 +560,18 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   else if (msgType == LORAWAN_UNCONFIRMED_DATA_UP)
     loRaWANDataRequestParams.m_numberOfTransmissions = m_nbRep;
 
-
+  //TODO: modify for case of LoRaWAN Class B beacon or downlink (different DR, channel). 
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
     m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
     return true;
-  } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+  } 
+  //////////////////////////////////////////////
+  else if (m_deviceType == LORAWAN_DT_GATEWAY && msgType == LORAWAN_BEACON) {
+    m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
+    return true;
+  }
+  /////////////////////////////////////////////
+  else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     // select appropiate MAC/Phy based on channel and data rate of TX
     uint8_t macIndex = 0;
     if (getMACSIndexForChannelAndDataRate (macIndex, channelIndex, dataRateIndex)) {
@@ -697,6 +710,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
   phyParamsTag.SetChannelIndex (params.m_channelIndex);
   phyParamsTag.SetDataRateIndex (params.m_dataRateIndex);
   phyParamsTag.SetCodeRate (params.m_codeRate);
+  phyParamsTag.SetPreambleLength (params.m_preambleLength);
   pkt->AddPacketTag (phyParamsTag);
 
   // Add MsgTypeTag to packet

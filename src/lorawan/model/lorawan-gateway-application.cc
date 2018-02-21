@@ -296,6 +296,7 @@ LoRaWANNetworkServer::HandleUSPacket (Ptr<LoRaWANGatewayApplication> lastGW, Add
     it->second.m_lastChannelIndex = phyParamsTag.GetChannelIndex ();
     it->second.m_lastDataRateIndex = phyParamsTag.GetDataRateIndex ();
     it->second.m_lastCodeRate = phyParamsTag.GetCodeRate ();
+    it->second.m_lastPreambleLength = phyParamsTag.GetPreambleLength ();
   } else {
     NS_LOG_WARN (this << " LoRaWANPhyParamsTag not found on packet.");
   }
@@ -534,6 +535,7 @@ LoRaWANNetworkServer::SendDSPacket (uint32_t deviceAddr, Ptr<LoRaWANGatewayAppli
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
   phyParamsTag.SetCodeRate (it->second.m_lastCodeRate);
+  phyParamsTag.SetPreambleLength (8) //TODO: magic number
   p->AddPacketTag (phyParamsTag);
 
   // Set Msg type
@@ -1160,7 +1162,34 @@ LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
   beacon[16] = 0x00;
 
 
-  
+  Packet p =  Create<Packet> (beacon, 17);
+
+  //add the tags to the packet
+  //note that there is no frame header in beacons
+
+  uint8_t beaconChannelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
+  // Note: this also appears to be the only channel outside of the main subband? 
+  uint8_t beaconDataRateIndex = 3;  // SF9, 125kHz BW. Mandetory for Class B beacons.
+  uint8_t beaconCodeRate = 3; //TODO: double check this.
+  uint8_t beaconPreambleLength = 10;
+
+  LoRaWANPhyParamsTag phyParamsTag;
+  phyParamsTag.SetChannelIndex (beaconChannelIndex);
+  phyParamsTag.SetDataRateIndex (beaconDataRateIndex);
+  phyParamsTag.SetCodeRate (beaconCodeRate);
+  phyParamsTag.SetPreambleLength (beaconPreambleLength);
+  p->AddPacketTag (phyParamsTag);
+
+  // Set Msg type
+  LoRaWANMsgTypeTag msgTypeTag;
+  msgTypeTag.SetMsgType (LORAWAN_BEACON);
+  p->AddPacketTag (msgTypeTag);
+
+
+  //LoRaWANPhyParamsTag
+  // use a call to m_phy->SetTxConf to set details
+
+  //LoRaWANDataRequestParams  
   // MAC layer stuff:
   // beacon frame MUST have a longer preamble
   // beacon frame MUST be transmitted in radio packet implicit mode (no LoRa physical header, no CRC appended by the radio)

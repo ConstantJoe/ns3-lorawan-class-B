@@ -318,6 +318,7 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   phyParamsTag.SetChannelIndex (channelIndex);
   phyParamsTag.SetDataRateIndex (m_dataRateIndex);
   phyParamsTag.SetCodeRate (3);
+  phyParamsTag.SetPreambleLength (8);
   packet->AddPacketTag (phyParamsTag);
 
   // Set Msg type

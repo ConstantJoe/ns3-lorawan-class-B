@@ -165,6 +165,20 @@ LoRaWANPhyParamsTag::GetCodeRate (void) const
   return m_codeRate;
 }
 
+///////////////////////////
+void
+LoRaWANPhyParamsTag::SetPreambleLength (uint8_t preambleLength)
+{
+  m_preambleLength = preambleLength;
+}
+
+uint8_t
+LoRaWANPhyParamsTag::GetPreambleLength (void) const
+{
+  return m_preambleLength;
+}
+///////////////////////////
+
 TypeId
 LoRaWANPhyParamsTag::GetTypeId (void)
 {
