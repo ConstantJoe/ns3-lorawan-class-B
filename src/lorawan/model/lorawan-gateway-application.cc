@@ -773,15 +773,18 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
 
   Time timestamp = Simulator::Now();
+  Time nextBeacon = Seconds (128); //TODO: correct format?
+  uint32_t t = 0; //TODO: calculate GPS time to be sent here, from timestamp above.
 
   std::cout << "Current time is " << timestamp << std::endl;
 
   //indicate to gateways to send a beacon at exact right time
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
     if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
-      //gw->SendBeacon(timestamp); //TODO: is it better to send this timestamp, or schedule an exact time for all to send a timestamp? Decide later
+      gw->SendBeacon(t);
     }
     else{
+      //TODO: log err
       //log err
     }
   }
@@ -862,8 +865,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   }
 
   //schedule next beacon
-  Time t = Seconds (128); //TODO: ensure this is accurate (record at start of function?)
-  m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
+  m_beaconTimer = Simulator::Schedule (nextBeacon, &LoRaWANNetworkServer::ClassBSendBeacon, this);
   std::cout << "Class B beacon scheduled!" << std::endl;
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
@@ -1198,8 +1200,8 @@ LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
   // don't schedule any rx1 or rx2 check
 
 
-  // then pass this beacon to the MAC layer
-  gatewayPtr->SendDSPacket (p);
+  // then pass this beacon to the Net Device
+  this->SendDSPacket (p);
 }
 
 

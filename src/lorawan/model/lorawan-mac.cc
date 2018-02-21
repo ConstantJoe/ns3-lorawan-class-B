@@ -698,7 +698,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // TODO: inform upper layers via DataConfirmCallback
   // For now Join request/Join Accept messages are not supported
-  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN) ) {
+  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON) ) {
     // We only know how to send (un)confirmed data up or down
     NS_LOG_ERROR (this << " unsupported LoRaWAN Message type: " << params.m_msgType);
     return;
@@ -728,7 +728,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // Gateways may send downstream, end devices only send upstream data
   if (m_deviceType == LORAWAN_DT_GATEWAY) {
-    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN) ) {
+    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN | params.m_msgType == LORAWAN_BEACON) ) {
       NS_LOG_ERROR (this << " Gateway only supports downstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
     }
@@ -773,16 +773,20 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 Ptr<Packet>
 LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
 {
-  // PHYPayload consists of MAC header, MACPayload and MIC
+  //In beacons, there is no LoRa physical header, MacHeader, or MIC.
+  if (!params.m_msgType == LORAWAN_BEACON){
+    // PHYPayload consists of MAC header, MACPayload and MIC
   LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
   p->AddHeader (lorawanMacHdr);
 
-  //TODO: MIC is not included in beacons
+  
   // 4B MIC
   uint32_t size = p->GetSize ();
-  p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
-  NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet
+  
 
+  p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
+  NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet  
+  }
   return p;
 }
 
@@ -938,7 +942,7 @@ LoRaWANMac::ConfigurePhyForTX () {
     uint8_t preambleLength = txQElement->lorawanDataRequestParams.m_loraWANPreambleLength;
 
     bool implicitHeader = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? true : false;
-    bool crcOn = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? true : false;
+    bool crcOn = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? false : true;
     /////////////////////////////////
 
     uint8_t subBandIndex = LoRaWAN::m_supportedChannels[txQElement->lorawanDataRequestParams.m_loraWANChannelIndex].m_subBandIndex; // Sub band belonging to channel
