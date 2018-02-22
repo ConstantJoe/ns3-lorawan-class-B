@@ -130,9 +130,16 @@ LoRaWANNetworkServer::DoInitialize (void)
   NS_LOG_FUNCTION (this);
   std::cout << "testing!" << std::endl;
   //begin broadcasting of beacons
-  //TODO: set exact time to start here
   if(m_generateClassBDataDown){
-      Time t = Seconds (128);
+      Time t;
+      if(m_scheduleFromUnixTime){
+        uint64_t t_gps = getGPSTime();
+        uint64_t t_until_next_beacon = 128 - (t_gps%128); // get number of seconds till next beacon time
+        t = Seconds(t_until_next_beacon);
+      }
+      else{
+        t = Seconds (128);
+      }
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);  
   }  
@@ -773,10 +780,20 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
 
   Time timestamp = Simulator::Now();
-  Time nextBeacon = Seconds (128); //TODO: correct format?
-  uint32_t t = 0; //TODO: calculate GPS time to be sent here, from timestamp above.
+  Time nextBeacon = Seconds (128); //TODO: correct format? does this get the time for now + 128s, or is it just 128s? Does it matter in ns3?
+  uint32_t t;
+
+  if(m_scheduleFromUnixTime){
+        double secs = timestamp.GetSeconds();
+        uint64_t t_gps = getRelativeGPSTime(secs); //note that GetSeconds returns a double, we need a uint
+  }
+
+   //= getGPSTime(); //TODO: calculate GPS time to be sent here, from timestamp above.
+
+
 
   std::cout << "Current time is " << timestamp << std::endl;
+  std::cout << "Next beacon will be sent at " << nextBeacon << std::endl;
 
   //indicate to gateways to send a beacon at exact right time
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
@@ -803,7 +820,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     Calculate all slots first, then schedule them - that way conflicting slots (same time and gw) can be handled.
     */
 
-    uint64_t period = std::pow(2.0, 12) / d->second.m_ClassBPingSlots;
+    uint64_t period = std::pow(2.0, 12) / d->second.m_ClassBPingSlots; //TODO: double-check this. 2^12 / 2 = 2048 - is that what we're looking for???
     uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
     uint8_t buf[16];
 
@@ -878,7 +895,9 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr)
   // v. similar to SendDSPacket, can it be modified and used directly?
 }
 
-
+// In real LoRaWAN networks the timings of beacons is defined to be every 128 seconds, starting from the beginning of GPS time. 
+// GPS time is defined as the number of seconds since the 6th of Jan, 1980, not factoring in leap seconds (i.e current GPS time is 18 seconds ahead of UTC time)
+// GPS time is managed and maintained by IERS, see their website for details: www.iers.org
 // these following functions are C++ ports of functions from David Calhoun's GPS-time.js library
 // https://github.com/davidcalhoun/gps-time.js/blob/master/gps-time.js
 // Licensed under MIT (https://github.com/davidcalhoun/gps-time.js/blob/master/LICENSE)
@@ -945,6 +964,24 @@ LoRaWANNetworkServer::shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint6
     // for gps->unix
     return gpsMS >= curGPSLeapMS;
   }
+}
+
+/*NOTE: only can be used at very start of simulation*/
+uint64_t
+LoRaWANNetworkServer::getGPSTime()
+{
+  uint64_t t = static_cast<uint64_t>(time(NULL)); //seconds in Unix time
+  m_simulationStartTime = t;
+  t *= 1000; // rough convert to millis
+  uint64_t t_gps = getGPSTimeFromUnixTime(t); // convert to GPS time
+  t_gps /= 1000; // rough convert back to seconds
+  return t_gps;
+}
+
+uint64_t
+LoRaWANNetworkServer::getRelativeGPSTime(uint64_t secondsPassed)
+{
+  return m_simulationStartTime + secondsPassed;
 }
 
 

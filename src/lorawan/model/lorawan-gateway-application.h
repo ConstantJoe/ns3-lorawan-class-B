@@ -200,9 +200,11 @@ private:
     EventId     m_beaconTimer;
     std::set<Ptr<LoRaWANGatewayApplication>> m_gateways;
     bool m_generateClassBDataDown;
+    bool m_scheduleFromUnixTime;
 
     uint8_t     m_ClassBBeaconChannelIndex;
     uint8_t     m_ClassBBeaconDataRateIndex;
+    uint64_t m_simulationStartTime;
 
     //TODO: modify LoRaWANEndDeviceInfoNS to add another queue specifically for Class B downlinks (like second.m_downstreamQueue and second.m_nDSPacketsGenerated are used now)
   //////////////////////////////////
