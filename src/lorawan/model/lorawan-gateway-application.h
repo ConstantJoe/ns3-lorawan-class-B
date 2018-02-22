@@ -162,8 +162,14 @@ public:
 
   //////////////////////////////////
   // Code in here has been added by Joe.
-  void ClassBDSTimerExpired (uint32_t deviceAddr);
+  void ClassBDSTimerExpired (uint32_t deviceAddr); //generates downlink packets for Class B. May be removed to a seperate data generator class later.
   void ClassBSendBeacon ();
+  void ClassBPingSlot(uint32_t devAddr);
+
+  uint64_t getGPSTimeFromUnixTime(uint64_t unixMS);
+  uint64_t countLeaps(uint64_t gpsMS, bool isUnixToGPS);
+  bool shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS);
+{
   //////////////////////////////////
 
 private:

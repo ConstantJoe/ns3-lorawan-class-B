@@ -831,28 +831,22 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
       buf[i] = 0;
     }
 
-    /*std::cout << "Unencrypted message: "; 
-    for(uint i=0; i<16;i++){
-      printf("%x ", buf[i]);;
-    }    
-    std::cout << std::endl;*/
-
     AES aes;
 
     aes.SetKey(key, 16);
     aes.Encrypt(buf, 16);
 
-    /*std::cout << "Encrypted message: "; 
-    for(uint i=0; i<16;i++){
-      printf("%x ", buf[i]);
-      //std::cout << std::hex << buf[i];
-    }    
-    std::cout << std::endl;
-
-    std::cout << std::dec;*/
-
-   
     uint64_t O = (buf[0] + buf[1]*256) % period;
+
+    Ipv4Address deviceAddr = d->m_deviceAddress;
+    //NS_LOG_INFO(this << "Received packet from device addr = " << deviceAddr);
+    uint32_t key = deviceAddr.Get ();
+
+    //calculate and schedule ping slots for this device
+    for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
+      uint64_t pingTime = O + (period * i);
+      Simulator::Schedule (pingTime, &LoRaWANNetworkServer::ClassBPingSlot, key);
+    }
 
     /*printf("%d ", period);
     printf("%d ", O);*/
@@ -870,7 +864,88 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
 
+void
+LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr)
+{
+  //get device to send downlink to
+  auto it = m_endDevices.find (deviceAddr);
+  if (it == m_endDevices.end ()) { // end device not found
+    NS_LOG_ERROR (this << " Could not find device info struct in m_endDevices for dev addr " << deviceAddr);
+    return;
+  }
 
+  //TODO: check queue, if a packet is waiting to be sent send via last seen gateway
+  // v. similar to SendDSPacket, can it be modified and used directly?
+}
+
+
+// these following functions are C++ ports of functions from David Calhoun's GPS-time.js library
+// https://github.com/davidcalhoun/gps-time.js/blob/master/gps-time.js
+// Licensed under MIT (https://github.com/davidcalhoun/gps-time.js/blob/master/LICENSE)
+// these functions aren't necessarily needed (it can be assumed for example that the first beacon gets sent 128s after the start of the simulation)
+// but could be useful
+// to use: get Unix time from OS via uint64_t t = static_cast<uint64_t>(time(NULL))
+uint64_t
+LoRaWANNetworkServer::getGPSTimeFromUnixTime(uint64_t unixMS)
+{
+    
+    uint64_t msInSecond = 1000;
+    // Difference in time between Jan 1, 1970 (Unix epoch) and Jan 6, 1980 (GPS epoch).
+    uint64_t gpsUnixEpochDiffMS = 315964800000;
+
+    //Fractional seconds indicate this is a leap second??? TODO: ensure unix time got from OS is in correct format for this to work.
+    bool isLeap = (unixMS % msInSecond) != 0;
+    if(isLeap) {
+      unixMS -= msInSecond / 2;
+    }
+
+    uint64_t gpsMS = unixMS - gpsUnixEpochDiffMS;
+
+    gpsMS += (countLeaps(gpsMS, true) * msInSecond);
+
+    if(isLeap)
+    {
+      gpsMS += msInSecond;
+    }
+
+    return gpsMS;
+}
+
+uint64_t
+LoRaWANNetworkServer::countLeaps(uint64_t gpsMS, bool isUnixToGPS)
+{
+  uint64_t numLeaps = 0;
+  uint64_t msInSecond = 1000;
+  // List of GPS leaps in milliseconds.  This will need to stay updated as new leap seconds are announced in
+// the future.
+  uint64_t gpsLeapMS[] = {
+  46828800000, 78364801000, 109900802000, 173059203000, 252028804000, 315187205000, 346723206000,
+  393984007000, 425520008000, 457056009000, 504489610000, 551750411000, 599184012000, 820108813000,
+  914803214000, 1025136015000, 1119744016000, 1167264017000
+  };
+
+  for(uint i=0; i<sizeof(gpsLeapMS)/sizeof(gpsLeapMS[0]); i++)
+  {
+    if(shouldAddLeap(gpsMS, gpsLeapMS[i], i * msInSecond, isUnixToGPS)){
+      numLeaps++;
+    }
+  }
+  return numLeaps;
+}
+
+bool 
+LoRaWANNetworkServer::shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS){
+  if(isUnixToGPS)
+  {
+    // for unix->gps
+    return gpsMS >= curGPSLeapMS - totalLeapsMS;
+  }
+  else
+  {
+    // for gps->unix
+    return gpsMS >= curGPSLeapMS;
+  }
+}
 
 
 ////////////////////////////////////////////////////////////
