@@ -783,22 +783,84 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   Time nextBeacon = Seconds (128); //TODO: correct format? does this get the time for now + 128s, or is it just 128s? Does it matter in ns3?
   uint32_t t;
 
+  //TODO: finish this conversion
   if(m_scheduleFromUnixTime){
         double secs = timestamp.GetSeconds();
-        uint64_t t_gps = getRelativeGPSTime(secs); //note that GetSeconds returns a double, we need a uint
+        uint64_t t_gps = getRelativeGPSTime(secs); // TODO: note that GetSeconds returns a double, we need a uint
+        t = 0;
   }
-
-   //= getGPSTime(); //TODO: calculate GPS time to be sent here, from timestamp above.
+  else {
+       double secs = timestamp.GetSeconds();
+       t = 0;
+  }
 
 
 
   std::cout << "Current time is " << timestamp << std::endl;
   std::cout << "Next beacon will be sent at " << nextBeacon << std::endl;
 
+
+  // build a beacon frame
+  // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be modified in the gateway, as some parameters are gateway dependent
+  // crc must be calculated - check in spec for exact algorithm
+
+  // build the majority of the beacon
+  uint8_t beacon[17];
+
+  // the beacon payload is in this format (EU868 only):
+  // 2   4    2   7          2
+  // RFU Time CRC GwSpecific CRC
+
+  // RFU is 0,0
+  beacon[0] = 0x00;
+  beacon[1] = 0x00;
+
+  // Time is seconds in GPS
+  // the timestamp given as a parameter to this function is that GPS time
+  // TODO: double check the values are going in in the right order
+  // putting them in LSB first
+  beacon[2] = (t >> 0);
+  beacon[3] = (t >> 8);
+  beacon[4] = (t >> 16);
+  beacon[5] = (t >> 24);
+ 
+  // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
+  // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
+  // and so the two byte CRC would be calculated on [00 00 00 00 02 CC]
+  // we're not actually implementing the CRC check, but if we were this is where it would be done.
+  beacon[6] = 0x00;
+  beacon[7] = 0x00;
+
+  Packet p =  Create<Packet> (beacon, 17);
+
+  //add the tags to the packet
+  //note that there is no frame header in beacons
+
+  /*uint8_t beaconChannelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
+  // Note: this also appears to be the only channel outside of the main subband? 
+  uint8_t beaconDataRateIndex = 3;  // SF9, 125kHz BW. Mandetory for Class B beacons.
+  uint8_t beaconCodeRate = 3; //TODO: double check this.
+  uint8_t beaconPreambleLength = 10;
+
+  //TODO: this should be done here, but as the packet gets recreated in the gw->SendBeacon function, there's no point.
+  //if the PeekData function is used instead, then the Tag can be added here.
+  LoRaWANPhyParamsTag phyParamsTag;
+  phyParamsTag.SetChannelIndex (beaconChannelIndex);
+  phyParamsTag.SetDataRateIndex (beaconDataRateIndex);
+  phyParamsTag.SetCodeRate (beaconCodeRate);
+  phyParamsTag.SetPreambleLength (beaconPreambleLength);
+  p->AddPacketTag (phyParamsTag);
+
+  // Set Msg type
+  LoRaWANMsgTypeTag msgTypeTag;
+  msgTypeTag.SetMsgType (LORAWAN_BEACON);
+  p->AddPacketTag (msgTypeTag);*/
+
+
   //indicate to gateways to send a beacon at exact right time
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
     if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
-      gw->SendBeacon(t);
+      gw->SendBeacon(p);
     }
     else{
       //TODO: log err
@@ -1194,11 +1256,17 @@ void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
 
 // timestamp is the number of seconds in GPS time % 2^32
 void 
-LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
+LoRaWANGatewayApplication::SendBeacon (Ptr<Packet> packet)
 {
+  //extract payload from packet
+  uint8_t beacon[17];
+  packet->CopyData(beacon, 17);
+
   // Get location from mobility model
   // the mobility model has a getPosition function.
   // get the current node attached to this gateway application, then get the mobility model attached to that node, then call getPosition
+  // the position returned is in the format (x,y,z), in Carthesian coordinates (all doubles). 24 byte words for GPS latitude and longitude are expected in real LoRaWAN beacons
+  // but as we are not planning to currently use the location data we will just use the first (LSB) 24 bytes of the position given in the mobility model 
   Vector position;
   Ptr<MobilityModel> mobility = GetNode()->GetObject<MobilityModel>();
   if (mobility){
@@ -1209,42 +1277,6 @@ LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
     position = Vector(0,0,0);
   }
   
-  // the position returned is in the format (x,y,z), in Carthesian coordinates (all doubles). 24 byte words for GPS latitude and longitude are expected in real LoRaWAN beacons
-  // but as we are not planning to currently use the location data we will just use the first (LSB) 24 bytes of the position given in the mobility model 
-
-
-  //TODO: below is (likely) the correct payload format. But a Packet object should be used instead of a buffer. Then pass the PhyParams to the packet and call SendDSPacket
-  // build a beacon frame
-  // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be built in the gateway, as some parameters are gateway dependent
-  // crc must be calculated - check in spec for exact algorithm
-
-  uint8_t beacon[17];
-
-  // the beacon payload is in this format (EU868 only):
-  // 2   4    2   7          2
-  // RFU Time CRC GwSpecific CRC
-
-  // RFU is 0,0
-  beacon[0] = 0x00;
-  beacon[1] = 0x00;
-
-  // Time is seconds in GPS
-  // the timestamp given as a parameter to this function is that GPS time
-  // TODO: double check the values are going in in the right order
-  // putting them in LSB first
-  beacon[2] = (timestamp >> 0);
-  beacon[3] = (timestamp >> 8);
-  beacon[4] = (timestamp >> 16);
-  beacon[5] = (timestamp >> 24);
-
-  // CRC check is complex / confusing, 
-  // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
-  // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
-  // and so the two byte CRC would be calculated on [00 00 00 00 02 CC]
-  // talk to Stephen before implementation
-  beacon[6] = 0x00;
-  beacon[7] = 0x00;
-
   // GwSpecific gives GPS coordinates of the gateway
   // first byte: 0, 1, 2 specify GPS coordinates of 1st, 2nd, 3rd antennas respectively 
   // 3:127 are RFU
@@ -1272,15 +1304,18 @@ LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
   beacon[14] = (longi >> 16);
 
   //then another CRC check
+  // we're not actually implementing the CRC check, but if we were this is where it would be done.
   beacon[15] = 0x00;
   beacon[16] = 0x00;
 
-
+  //build a new packet wuth the modified data
+  //an alternative to this would be to use PeekData to get a pointer to the data buffer, but this is less messy
   Packet p =  Create<Packet> (beacon, 17);
 
   //add the tags to the packet
   //note that there is no frame header in beacons
 
+  //TODO: magic numbers
   uint8_t beaconChannelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
   // Note: this also appears to be the only channel outside of the main subband? 
   uint8_t beaconDataRateIndex = 3;  // SF9, 125kHz BW. Mandetory for Class B beacons.
@@ -1299,9 +1334,6 @@ LoRaWANGatewayApplication::SendBeacon (uint32_t timestamp)
   msgTypeTag.SetMsgType (LORAWAN_BEACON);
   p->AddPacketTag (msgTypeTag);
 
-
-  //LoRaWANPhyParamsTag
-  // use a call to m_phy->SetTxConf to set details
 
   //LoRaWANDataRequestParams  
   // MAC layer stuff:
