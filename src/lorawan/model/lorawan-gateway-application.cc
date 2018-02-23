@@ -781,17 +781,16 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
   Time timestamp = Simulator::Now();
   Time nextBeacon = Seconds (128); //TODO: correct format? does this get the time for now + 128s, or is it just 128s? Does it matter in ns3?
-  uint32_t t;
+  uint64_t t;
 
-  //TODO: finish this conversion
+  uint64_t secs = timestamp.GetMilliSeconds() / 1000; //note: not using GetSeconds as it returns a double.
   if(m_scheduleFromUnixTime){
-        double secs = timestamp.GetSeconds();
-        uint64_t t_gps = getRelativeGPSTime(secs); // TODO: note that GetSeconds returns a double, we need a uint
-        t = 0;
+         
+        uint64_t t_gps = getRelativeGPSTime(secs);
+        t = t_gps & 0x00000000FFFFFFFF; // t should be the 4 LSB bytes of t_gps
   }
   else {
-       double secs = timestamp.GetSeconds();
-       t = 0;
+       t = secs & 0x00000000FFFFFFFF; // t should be the 4 LSB bytes of secs TODO: there must be a nicer way of doing this.
   }
 
 
@@ -819,10 +818,10 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   // the timestamp given as a parameter to this function is that GPS time
   // TODO: double check the values are going in in the right order
   // putting them in LSB first
-  beacon[2] = (t >> 0);
-  beacon[3] = (t >> 8);
-  beacon[4] = (t >> 16);
-  beacon[5] = (t >> 24);
+  beacon[2] = (t >> 0)  & 0xFF;
+  beacon[3] = (t >> 8)  & 0xFF;
+  beacon[4] = (t >> 16) & 0xFF;
+  beacon[5] = (t >> 24) & 0xFF;
  
   // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
   // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
