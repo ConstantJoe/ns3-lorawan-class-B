@@ -309,8 +309,11 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   if (codeRate != 1 && codeRate != 2 && codeRate != 3 && codeRate != 4)
     validConf = false;
 
-  if (implicitHeader) // only explicit header is supported in LoRaWAN
-    validConf = false;
+  //////////////////////////////
+  //Class B change: implicit header is used in LoRaWAN Class B Beacon
+  //////////////////////////////
+  /*if (implicitHeader) // only explicit header is supported in LoRaWAN
+    validConf = false;*/
 
   if (!validConf) {
     NS_LOG_ERROR(this << "Invalid TX config supplied, aborting.");
@@ -322,8 +325,12 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   m_currentChannelIndex = channelIndex;
   m_currentDataRateIndex = dataRateIndex;
   m_codeRate = codeRate;
-  m_preambleLength = preambleLength;
   m_crcOn = crcOn;
+
+  /////////////////////////////////////
+  m_preambleLength = preambleLength;
+  m_implicitHeader = implicitHeader;
+  /////////////////////////////////////
 
   // update TX PSD
   LoRaWANSpectrumValueHelper psdHelper;
@@ -871,12 +878,21 @@ LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
 
   double nSymbolsPreamble = m_preambleLength + 4.25;
   uint16_t nSymbolsPayload = 8;
-  // LoRaWAN mandates no imlicit header, assume low data rate optimization (DE) is not used
+  // LoRaWAN mandates no implicit header, assume low data rate optimization (DE) is not used
   uint32_t crc = 1;
   if (!m_crcOn)
     crc = 0;
 
-  uint16_t nConditionalSymbolsPayload = ceil((8.0*payloadLength - 4.0*sf + 28 + 16*crc)/4.0/(double)sf)*(m_codeRate + 4);
+  ///////////////////////////////
+  uint32_t implicitHeader = 0;
+  if(m_implicitHeader)
+    implicitHeader = 1;
+  ///////////////////////////////
+
+  ////////////
+  //Class B change: adding back in possibility of implicit header
+  ////////////
+  uint16_t nConditionalSymbolsPayload = ceil((8.0*payloadLength - 4.0*sf + 28 + 16*crc - 20*implicitHeader)/4.0/(double)sf)*(m_codeRate + 4);
   if (nConditionalSymbolsPayload > 0.0)
     nSymbolsPayload += nConditionalSymbolsPayload;
 
@@ -887,6 +903,8 @@ LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
       << "|" << txTime << "uS");
 
   return MicroSeconds(txTime);
+
+
 }
 
 Time
