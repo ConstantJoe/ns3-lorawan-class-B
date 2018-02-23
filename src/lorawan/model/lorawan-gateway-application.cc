@@ -918,12 +918,15 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
     Ipv4Address deviceAddr = d->m_deviceAddress;
     //NS_LOG_INFO(this << "Received packet from device addr = " << deviceAddr);
+    uint32_t beacon_reserved = 2120; // ms //TODO: magic numbers
+    uint32_t slotLength = 30; // ms
     uint32_t key = deviceAddr.Get ();
 
     //calculate and schedule ping slots for this device
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
-      uint64_t pingTime = O + (period * i);
-      Simulator::Schedule (pingTime, &LoRaWANNetworkServer::ClassBPingSlot, key);
+      uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
+      Time ping = Milliseconds(pingTime); 
+      Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, key);
     }
 
     /*printf("%d ", period);
@@ -1287,20 +1290,20 @@ LoRaWANGatewayApplication::SendBeacon (Ptr<Packet> packet)
   // convert a 64-bit double to an unsigned 32-bit int. Then put the lowest 24 bits into the buffer. Works fine up to 2^32
   // TODO: note that this is not related to the proper LoRaWAN method.
   //lat
-  double lat_d = position[0]; //TODO: probably accessing this wrong
+  double lat_d = position.at(0);
   lat_d += 6755399441055744.0;
   uint32_t lat = reinterpret_cast<uint32_t&>(lat_d);
-  beacon[9] = (lat >> 0);
-  beacon[10] = (lat >> 8);
-  beacon[11] = (lat >> 16);
+  beacon[9] = (lat >> 0)   & 0xFF;
+  beacon[10] = (lat >> 8)  & 0xFF;
+  beacon[11] = (lat >> 16) & 0xFF;
 
   //long
-  double longi_d = position[1]; //TODO: probably accessing this wrong
+  double longi_d = position.at(0);
   longi_d += 6755399441055744.0;
   uint32_t longi = reinterpret_cast<uint32_t&>(lat_d);
-  beacon[12] = (longi >> 0);
-  beacon[13] = (longi >> 8);
-  beacon[14] = (longi >> 16);
+  beacon[12] = (longi >> 0)  & 0xFF;
+  beacon[13] = (longi >> 8)  & 0xFF;
+  beacon[14] = (longi >> 16) & 0xFF;
 
   //then another CRC check
   // we're not actually implementing the CRC check, but if we were this is where it would be done.
