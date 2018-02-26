@@ -196,7 +196,10 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
   info.m_rx1DROffset = 0; // default
   info.m_setAck = false;
 
-  info.m_ClassBPingSlots = 4; //TODO: added by Joe, static for now.
+  //////////////////////////////
+  // number of ping slots is based on ping periodicity, and is always a power of two.
+  info.m_ClassBPingSlots = std::pow(2.0, 7 - info.m_ClassBPingPeriodicity);
+  //////////////////////////////
 
   std::ostringstream addrOss;
   ipv4DevAddr.Print (addrOss);

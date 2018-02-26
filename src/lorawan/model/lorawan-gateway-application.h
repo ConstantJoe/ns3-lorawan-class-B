@@ -82,7 +82,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
   m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBPingSlots(2), m_ClassBChannelIndex(0), m_ClassBDataRateIndex(0), m_downstreamTimer() {}
+  m_ClassBdownstreamTimer(), m_ClassBPingSlots(2), m_ClassBPingPeriodicity(0), m_ClassBChannelIndex(0), m_ClassBDataRateIndex(0), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;
@@ -123,6 +123,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint32_t    m_nClassBPacketsSent;   //!< The total number of sent DS packets
   EventId     m_ClassBdownstreamTimer; // DS traffic generator timer
   uint8_t     m_ClassBPingSlots; //number of ping slots per beacon period wanted by the device. Setting default as 2 for now, TODO: what is default in spec?
+  uint8_t     m_ClassBPingPeriodicity;
   uint8_t     m_ClassBChannelIndex;
   uint8_t     m_ClassBDataRateIndex;  
   //////////////////////////////////
