@@ -622,41 +622,55 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
     {
       NS_ASSERT_MSG (m_txQueue.size () > 0, "TxQsize = 0");
       TxQueueElement *txQElement = m_txQueue.front ();
-      // As no Ack is comming, notify upper layer that packet was sent and check if packet can be removed from queue
-      if (!macHdr.IsConfirmed ())
+
+      /////////////////////////////////////
+      //Beacons have no MAC header, factoring this in.
+      /////////////////////////////////////
+
+      if (!macHdr)
       {
-        m_macTxOkTrace (m_txPkt);
-        if (!m_dataConfirmCallback.IsNull ())
-          {
-            LoRaWANDataConfirmParams confirmParams;
-            confirmParams.m_requestHandle = txQElement->lorawanDataRequestParams.m_requestHandle;
-            confirmParams.m_status = LORAWAN_SUCCESS;
-            m_dataConfirmCallback (confirmParams);
-          }
+        // no MAC header = Class B beacon.
+        // don't send the same beacon again, the timestamp will be out of date
+        RemoveFirstTxQElement (true);
+      }
+      else{
+        // As no Ack is comming, notify upper layer that packet was sent and check if packet can be removed from queue
+        if (!macHdr.IsConfirmed ())
+        {
+          m_macTxOkTrace (m_txPkt);
+          if (!m_dataConfirmCallback.IsNull ())
+            {
+              LoRaWANDataConfirmParams confirmParams;
+              confirmParams.m_requestHandle = txQElement->lorawanDataRequestParams.m_requestHandle;
+              confirmParams.m_status = LORAWAN_SUCCESS;
+              m_dataConfirmCallback (confirmParams);
+            }
 
-        // Reduce number of transmissions by one
-        txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
-
-        // Check if we can remove the packet from the queue
-        if (txQElement->lorawanDataRequestParams.m_numberOfTransmissions == 0) {
-          // UNC packet has reached 0 tx attempts, so we can remove it from our queue
-          NS_LOG_DEBUG (this << " UNC packet reached zero transmissions, removing packet from queue.");
-          RemoveFirstTxQElement (true);
-        }
-      } else {
-        if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
-          // For confirmed messages, decrease the number of transmissions
-          NS_ASSERT (txQElement->lorawanDataRequestParams.m_numberOfTransmissions > 0);
-          NS_LOG_DEBUG( this << " Decreasing number of transmission for packet from " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) << " to " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) - 1);
+          // Reduce number of transmissions by one
           txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
-        } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
-          // As retransmissions are handled by the network server, it does not make sense to keep the packet in the queue on this gateway MAC
-          RemoveFirstTxQElement (true);
+
+          // Check if we can remove the packet from the queue
+          if (txQElement->lorawanDataRequestParams.m_numberOfTransmissions == 0) {
+            // UNC packet has reached 0 tx attempts, so we can remove it from our queue
+            NS_LOG_DEBUG (this << " UNC packet reached zero transmissions, removing packet from queue.");
+            RemoveFirstTxQElement (true);
+          }
         } else {
-          NS_FATAL_ERROR ( this << " Invalid device type " << m_deviceType);
-          return;
+          if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+            // For confirmed messages, decrease the number of transmissions
+            NS_ASSERT (txQElement->lorawanDataRequestParams.m_numberOfTransmissions > 0);
+            NS_LOG_DEBUG( this << " Decreasing number of transmission for packet from " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) << " to " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) - 1);
+            txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
+          } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+            // As retransmissions are handled by the network server, it does not make sense to keep the packet in the queue on this gateway MAC
+            RemoveFirstTxQElement (true);
+          } else {
+            NS_FATAL_ERROR ( this << " Invalid device type " << m_deviceType);
+            return;
+          }
         }
       }
+      
 
       // Update MAC and PHY state: depending on device class go to either WAITFORRW1 or directly to IDLE
       if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // always go to WAITFORRW1 for Class A
@@ -665,6 +679,9 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_WAITFORRW1);
       } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway
         // Always go to IDLE state for gateway, retransmissions are handled by the network server
+        //////////
+        // This method is okay for Class B beacons too.
+        //////////
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
 
         // Switch other PHY/MACs on this net-device to IDLE
