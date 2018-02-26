@@ -807,6 +807,10 @@ LoRaWANPhy::PdDataRequest (const uint32_t phyPayloadLength, Ptr<Packet> p)
       txParams->dataRateIndex = m_currentDataRateIndex;
       txParams->codeRate = m_codeRate;
 
+      /////////////////////////
+      //Note: NOT adding preamble length to this.
+      /////////////////////////
+
       m_channel->StartTx (txParams);
       m_pdDataRequest = Simulator::Schedule (txParams->duration, &LoRaWANPhy::EndTx, this);
       ChangeTrxState (LORAWAN_PHY_BUSY_TX);

@@ -782,7 +782,22 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
   TxQueueElement *txQElement = new TxQueueElement;
   txQElement->lorawanDataRequestParams = params;
   txQElement->txQPkt = phyPayload;
-  m_txQueue.push_back (txQElement);
+  
+
+  /////////////////////////////////////
+  //m_txQueue.push_back (txQElement);
+
+  //beacon has to be sent as soon as scheduled, if its a beacon put it at the start of the queue
+  if(params.m_msgType == LORAWAN_BEACON)
+  {
+    m_txQueue.insert(m_txQueue.begin(), txQElement);
+  }
+  else
+  {
+    //otherwise push it to the end 
+    m_txQueue.push_back (txQElement);  
+  }
+  ///////////////////////////////////////
 
   CheckQueue ();
 }
