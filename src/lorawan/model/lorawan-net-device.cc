@@ -560,18 +560,17 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   else if (msgType == LORAWAN_UNCONFIRMED_DATA_UP)
     loRaWANDataRequestParams.m_numberOfTransmissions = m_nbRep;
 
-  //TODO: modify for case of LoRaWAN Class B beacon or downlink (different DR, channel). 
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
     m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
     return true;
   } 
   //////////////////////////////////////////////
-  else if (m_deviceType == LORAWAN_DT_GATEWAY && msgType == LORAWAN_BEACON) {
+  /*else if (m_deviceType == LORAWAN_DT_GATEWAY && msgType == LORAWAN_BEACON) {
     m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
     return true;
-  }
+  }*/
   /////////////////////////////////////////////
-  else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+  else if (m_deviceType == LORAWAN_DT_GATEWAY) { //this is fine for Class B beacons and downlinks too
     // select appropiate MAC/Phy based on channel and data rate of TX
     uint8_t macIndex = 0;
     if (getMACSIndexForChannelAndDataRate (macIndex, channelIndex, dataRateIndex)) {

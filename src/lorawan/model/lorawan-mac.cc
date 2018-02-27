@@ -715,7 +715,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // TODO: inform upper layers via DataConfirmCallback
   // For now Join request/Join Accept messages are not supported
-  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON) ) {
+  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
     // We only know how to send (un)confirmed data up or down
     NS_LOG_ERROR (this << " unsupported LoRaWAN Message type: " << params.m_msgType);
     return;
@@ -745,7 +745,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // Gateways may send downstream, end devices only send upstream data
   if (m_deviceType == LORAWAN_DT_GATEWAY) {
-    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN | params.m_msgType == LORAWAN_BEACON) ) {
+    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN | params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
       NS_LOG_ERROR (this << " Gateway only supports downstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
     }
@@ -787,8 +787,9 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
   /////////////////////////////////////
   //m_txQueue.push_back (txQElement);
 
-  //beacon has to be sent as soon as scheduled, if its a beacon put it at the start of the queue
-  if(params.m_msgType == LORAWAN_BEACON)
+  //beacon and Class B downlink have to be sent as soon as scheduled, if its a beacon put it at the start of the queue
+  //TODO: double check this manipulation of the list works
+  if(params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN)
   {
     m_txQueue.insert(m_txQueue.begin(), txQElement);
   }

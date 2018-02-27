@@ -45,92 +45,92 @@
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE ("LoRaWANGatewayApplication");
+  NS_LOG_COMPONENT_DEFINE ("LoRaWANGatewayApplication");
 
-NS_OBJECT_ENSURE_REGISTERED (LoRaWANGatewayApplication);
+  NS_OBJECT_ENSURE_REGISTERED (LoRaWANGatewayApplication);
 
-Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
+  Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
 
-LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0) {}
+  LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0) {}
 
-TypeId
-LoRaWANNetworkServer::GetTypeId (void)
-{
-  static TypeId tid = TypeId ("ns3::LoRaWANNetworkServer")
+  TypeId
+  LoRaWANNetworkServer::GetTypeId (void)
+  {
+    static TypeId tid = TypeId ("ns3::LoRaWANNetworkServer")
     .SetParent<Application> ()
     .SetGroupName("LoRaWAN")
     .AddConstructor<LoRaWANNetworkServer> ()
     .AddAttribute ("PacketSize", "The size of DS packets sent to end devices",
-                   UintegerValue (21),
-                   MakeUintegerAccessor (&LoRaWANNetworkServer::m_pktSize),
-                   MakeUintegerChecker<uint32_t> (1))
+     UintegerValue (21),
+     MakeUintegerAccessor (&LoRaWANNetworkServer::m_pktSize),
+     MakeUintegerChecker<uint32_t> (1))
     .AddAttribute ("GenerateDataDown",
-                   "Generate DS packets for sending to end devices. Note that DS Acks will be send regardless of this boolean.",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&LoRaWANNetworkServer::m_generateDataDown),
-                   MakeBooleanChecker ())
+     "Generate DS packets for sending to end devices. Note that DS Acks will be send regardless of this boolean.",
+     BooleanValue (false),
+     MakeBooleanAccessor (&LoRaWANNetworkServer::m_generateDataDown),
+     MakeBooleanChecker ())
     .AddAttribute ("ConfirmedDataDown",
-                   "Send Downstream data as Confirmed Data DOWN MAC packets."
-                   "False means Unconfirmed data down packets are sent.",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&LoRaWANNetworkServer::GetConfirmedDataDown,
-                                        &LoRaWANNetworkServer::SetConfirmedDataDown),
-                   MakeBooleanChecker ())
+     "Send Downstream data as Confirmed Data DOWN MAC packets."
+     "False means Unconfirmed data down packets are sent.",
+     BooleanValue (false),
+     MakeBooleanAccessor (&LoRaWANNetworkServer::GetConfirmedDataDown,
+      &LoRaWANNetworkServer::SetConfirmedDataDown),
+     MakeBooleanChecker ())
     .AddAttribute ("DownstreamIAT", "A RandomVariableStream used to pick the time between subsequent Class A DS transmissions to an end device.",
-                   StringValue ("ns3::ExponentialRandomVariable[Mean=10]"),
-                   MakePointerAccessor (&LoRaWANNetworkServer::m_downstreamIATRandomVariable),
-                   MakePointerChecker <RandomVariableStream>())
+     StringValue ("ns3::ExponentialRandomVariable[Mean=10]"),
+     MakePointerAccessor (&LoRaWANNetworkServer::m_downstreamIATRandomVariable),
+     MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("ClassBDownstreamIAT", "A RandomVariableStream used to pick the time between subsequent Class B DS transmissions to an end device.",
-                   StringValue ("ns3::ExponentialRandomVariable[Mean=10]"),
-                   MakePointerAccessor (&LoRaWANNetworkServer::m_ClassBdownstreamIATRandomVariable),
-                   MakePointerChecker <RandomVariableStream>())
+     StringValue ("ns3::ExponentialRandomVariable[Mean=10]"),
+     MakePointerAccessor (&LoRaWANNetworkServer::m_ClassBdownstreamIATRandomVariable),
+     MakePointerChecker <RandomVariableStream>())
     .AddTraceSource ("nrRW1Sent",
-                     "The number of times that a DS packet was sent in RW1 by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW1Sent),
-                     "ns3::TracedValueCallback::Uint32")
+     "The number of times that a DS packet was sent in RW1 by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW1Sent),
+     "ns3::TracedValueCallback::Uint32")
     .AddTraceSource ("nrRW2Sent",
-                     "The number of times that a DS packet was sent in RW2 by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW2Sent),
-                     "ns3::TracedValueCallback::Uint32")
+     "The number of times that a DS packet was sent in RW2 by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW2Sent),
+     "ns3::TracedValueCallback::Uint32")
     .AddTraceSource ("nrRW1Missed",
-                     "The number of times RW1 was missed for all end devics served by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW1Missed),
-                     "ns3::TracedValueCallback::Uint32")
+     "The number of times RW1 was missed for all end devics served by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW1Missed),
+     "ns3::TracedValueCallback::Uint32")
     .AddTraceSource ("nrRW2Missed",
-                     "The number of times RW2 was missed for all end devics served by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW2Missed),
-                     "ns3::TracedValueCallback::Uint32")
+     "The number of times RW2 was missed for all end devics served by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_nrRW2Missed),
+     "ns3::TracedValueCallback::Uint32")
     .AddTraceSource ("DSMsgGenerated",
-                     "A DS msg for an end device has been generated by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgGeneratedTrace),
-                     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
+     "A DS msg for an end device has been generated by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgGeneratedTrace),
+     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
     .AddTraceSource ("DSMsgTransmitted",
-                     "A DS msg has been transmitted by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgTransmittedTrace),
-                     "ns3::TracedValueCallback::LoRaWANDSMessageTransmittedTracedCallback")
+     "A DS msg has been transmitted by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgTransmittedTrace),
+     "ns3::TracedValueCallback::LoRaWANDSMessageTransmittedTracedCallback")
     .AddTraceSource ("DSMsgAckd",
-                     "DS msg has been acknowledged by end device.",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgAckdTrace),
-                     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
+     "DS msg has been acknowledged by end device.",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgAckdTrace),
+     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
     .AddTraceSource ("DSMsgDropped",
-                     "DS msg has been dropped by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgDroppedTrace),
-                     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
+     "DS msg has been dropped by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_dsMsgDroppedTrace),
+     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
     .AddTraceSource ("USMsgReceived",
-                     "An US msg has been received by this network server",
-                     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_usMsgReceivedTrace),
-                     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
-  ;
-  return tid;
-}
+     "An US msg has been received by this network server",
+     MakeTraceSourceAccessor (&LoRaWANNetworkServer::m_usMsgReceivedTrace),
+     "ns3::TracedValueCallback::LoRaWANDSMessageTracedCallback")
+    ;
+    return tid;
+  }
 
-void
-LoRaWANNetworkServer::DoInitialize (void)
-{
-  NS_LOG_FUNCTION (this);
-  std::cout << "testing!" << std::endl;
+  void
+  LoRaWANNetworkServer::DoInitialize (void)
+  {
+    NS_LOG_FUNCTION (this);
+    std::cout << "testing!" << std::endl;
   //begin broadcasting of beacons
-  if(m_generateClassBDataDown){
+    if(m_generateClassBDataDown){
       Time t;
       if(m_scheduleFromUnixTime){
         uint64_t t_gps = getGPSTime();
@@ -142,25 +142,25 @@ LoRaWANNetworkServer::DoInitialize (void)
       }
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);  
-  }  
+    }  
 
-  Object::DoInitialize ();
-}
+    Object::DoInitialize ();
+  }
 
-void
-LoRaWANNetworkServer::PopulateEndDevices (void)
-{
+  void
+  LoRaWANNetworkServer::PopulateEndDevices (void)
+  {
   // only populate end devices once:
-  if (m_endDevicesPopulated)
-    return;
+    if (m_endDevicesPopulated)
+      return;
 
   // Populate m_endDevices based on ns3::NodeList
-  for (NodeList::Iterator it = NodeList::Begin (); it != NodeList::End (); ++it)
-  {
-    Ptr<Node> nodePtr(*it);
-    Address devAddr = nodePtr->GetDevice (0)->GetAddress();
-    if (Ipv4Address::IsMatchingType (devAddr)) {
-      Ipv4Address ipv4DevAddr = Ipv4Address::ConvertFrom (devAddr);
+    for (NodeList::Iterator it = NodeList::Begin (); it != NodeList::End (); ++it)
+    {
+      Ptr<Node> nodePtr(*it);
+      Address devAddr = nodePtr->GetDevice (0)->GetAddress();
+      if (Ipv4Address::IsMatchingType (devAddr)) {
+        Ipv4Address ipv4DevAddr = Ipv4Address::ConvertFrom (devAddr);
       if (ipv4DevAddr.IsEqual (Ipv4Address(0xffffffff))) { // gateway?
         continue;
       }
@@ -763,7 +763,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   //This can be used to schedule a call to this method at exactly the right time
   //so this method should send Now in the correct format (in reality, number of seconds since 1980, but as long as all nodes agree the crypto should still work)
   //TODO: this is a marked difference between the simulation and real life
-  
+
 
   /*TODO:
     The encryption works, BUT:
@@ -781,6 +781,10 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   */
   std::cout << "In Class B beacon!" << std::endl;
 
+  //clear old Class B ping slot queues
+  for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
+    gw->ClearPingSlotQueues();
+  }    
 
   Time timestamp = Simulator::Now();
   Time nextBeacon = Seconds (128); //TODO: correct format? does this get the time for now + 128s, or is it just 128s? Does it matter in ns3?
@@ -788,18 +792,18 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
   uint64_t secs = timestamp.GetMilliSeconds() / 1000; //note: not using GetSeconds as it returns a double.
   if(m_scheduleFromUnixTime){
-         
-        uint64_t t_gps = getRelativeGPSTime(secs);
+
+    uint64_t t_gps = getRelativeGPSTime(secs);
         t = t_gps & 0x00000000FFFFFFFF; // t should be the 4 LSB bytes of t_gps
-  }
-  else {
+      }
+      else {
        t = secs & 0x00000000FFFFFFFF; // t should be the 4 LSB bytes of secs TODO: there must be a nicer way of doing this.
-  }
+     }
 
 
 
-  std::cout << "Current time is " << timestamp << std::endl;
-  std::cout << "Next beacon will be sent at " << nextBeacon << std::endl;
+     std::cout << "Current time is " << timestamp << std::endl;
+     std::cout << "Next beacon will be sent at " << nextBeacon << std::endl;
 
 
   // build a beacon frame
@@ -807,33 +811,33 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   // crc must be calculated - check in spec for exact algorithm
 
   // build the majority of the beacon
-  uint8_t beacon[17];
+     uint8_t beacon[17];
 
   // the beacon payload is in this format (EU868 only):
   // 2   4    2   7          2
   // RFU Time CRC GwSpecific CRC
 
   // RFU is 0,0
-  beacon[0] = 0x00;
-  beacon[1] = 0x00;
+     beacon[0] = 0x00;
+     beacon[1] = 0x00;
 
   // Time is seconds in GPS
   // the timestamp given as a parameter to this function is that GPS time
   // TODO: double check the values are going in in the right order
   // putting them in LSB first
-  beacon[2] = (t >> 0)  & 0xFF;
-  beacon[3] = (t >> 8)  & 0xFF;
-  beacon[4] = (t >> 16) & 0xFF;
-  beacon[5] = (t >> 24) & 0xFF;
- 
+     beacon[2] = (t >> 0)  & 0xFF;
+     beacon[3] = (t >> 8)  & 0xFF;
+     beacon[4] = (t >> 16) & 0xFF;
+     beacon[5] = (t >> 24) & 0xFF;
+
   // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
   // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
   // and so the two byte CRC would be calculated on [00 00 00 00 02 CC]
   // we're not actually implementing the CRC check, but if we were this is where it would be done.
-  beacon[6] = 0x00;
-  beacon[7] = 0x00;
+     beacon[6] = 0x00;
+     beacon[7] = 0x00;
 
-  Packet p =  Create<Packet> (beacon, 17);
+     Packet p =  Create<Packet> (beacon, 17);
 
   //add the tags to the packet
   //note that there is no frame header in beacons
@@ -860,18 +864,23 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
 
   //indicate to gateways to send a beacon at exact right time
-  for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
-    if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
-      gw->SendBeacon(p);
-    }
-    else{
+     for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
+      if ((*gw)->CanSendImmediatelyOnChannel (m_ClassBBeaconChannelIndex, m_ClassBBeaconDataRateIndex)) {
+        gw->SendBeacon(p);
+      }
+      else{
       //TODO: log err
       //log err
+      }
     }
-  }
+
+  //
+  //TODO: create map or list of lists, with all possible ping slots (1024?) and GWs.
+  // When ClassBPingSlot gets called, if a device for that exact ping slot isn't at the top of the list, then don't send the packet
+  // Note: this won't factor in overlaps with different ping slots. That would require calculating the tx time for every packet.
 
   //schedule ping slots for all devices
-  for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
+    for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
     /*
     period  = (2^32)/slots
     R = AES_128_enc(16x 0x00, Time | DevAddr | pad16)
@@ -928,8 +937,10 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     //calculate and schedule ping slots for this device
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
       uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
+      LoRaWANGatewayApplication gw = m_endDevices->second.m_lastGWs.cbegin(); 
+      gw->RequestPingSlot(O + period*i, key);
       Time ping = Milliseconds(pingTime); 
-      Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, key);
+      Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, key, O + period*i);
     }
 
     /*printf("%d ", period);
@@ -949,17 +960,163 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 }
 
 void
-LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr)
+LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
 {
   //get device to send downlink to
-  auto it = m_endDevices.find (deviceAddr);
+  auto it = m_endDevices.find (devAddr);
   if (it == m_endDevices.end ()) { // end device not found
     NS_LOG_ERROR (this << " Could not find device info struct in m_endDevices for dev addr " << deviceAddr);
     return;
   }
 
-  //TODO: check queue, if a packet is waiting to be sent send via last seen gateway
-  // v. similar to SendDSPacket, can it be modified and used directly?
+  LoRaWANGatewayApplication gw = m_endDevices->second.m_lastGWs.cbegin(); 
+
+  if(gw->IsTopOfPingSlotQueue(pingTime, devAddr))
+  {  
+      //TODO: check data queue, if a packet is waiting to be sent send via last seen gateway
+      // v. similar to SendDSPacket, can it be modified and used directly?  
+
+  // Figure out which DS packet to send
+    LoRaWANNSDSQueueElement elementToSend;
+    bool deleteQueueElement = false;
+    if (it->second.m_ClassBdownstreamQueue.size() > 0) {
+      LoRaWANNSDSQueueElement* element = it->second.m_ClassBdownstreamQueue.front ();
+
+    // Bookkeeping for Confirmed packets:
+      /*if (element->m_downstreamMsgType == LORAWAN_CONFIRMED_DATA_DOWN) { 
+      // Count number of retransmissions:
+        if (element->m_isRetransmission) {
+          it->second.m_nDSRetransmission++;
+        }*/
+
+      // Update for next transmission:
+     // element->m_downstreamTransmissionsRemaining--; // decrement
+      //element->m_isRetransmission = true;
+    //}
+
+    // Should we delete pending packet after transmission?
+    //if (element->m_downstreamMsgType != LORAWAN_CONFIRMED_DATA_DOWN) { // delete the queueelement object after the send operation
+   //   deleteQueueElement = true;
+   // } else {
+    //  if (element->m_downstreamTransmissionsRemaining == 0) {// in case of CONFIRMED_DATA_DOWN, delete the pending transmission when the number of remaining transmissions has reached 1
+    //    deleteQueueElement = true;
+
+        // LOG that network server will delete DS packet from queue
+     m_dsMsgDroppedTrace (deviceAddr, 0, element->m_downstreamMsgType, element->m_downstreamPacket);
+    //  }
+    }
+
+    elementToSend.m_downstreamPacket = element->m_downstreamPacket;
+    elementToSend.m_downstreamMsgType = element->m_downstreamMsgType;
+    elementToSend.m_downstreamFramePort = element->m_downstreamFramePort;
+    elementToSend.m_downstreamTransmissionsRemaining = element->m_downstreamTransmissionsRemaining;
+  }
+  else {
+    NS_LOG_INFO (this << " No downstream packet to send to: " << deviceAddr << ". Aborting DS transmission");
+    return;
+  } 
+
+  /*else {
+    if (!it->second.m_setAck) {
+      // Not really a warning as there is just no need to send a DS packet (i.e. no data and no Ack)
+      NS_LOG_INFO (this << " No downstream packet found nor is ack bit set for dev addr " << deviceAddr << ". Aborting DS transmission");
+      return;
+    } else {
+      NS_LOG_DEBUG (this << " Generating empty downstream packet to send Ack for dev addr " << deviceAddr);
+      elementToSend.m_downstreamPacket = Create<Packet> (0); // create empty packet so that we can send the Ack
+      elementToSend.m_downstreamMsgType = LORAWAN_UNCONFIRMED_DATA_DOWN; // should also set msg type
+      elementToSend.m_downstreamFramePort = 0; // empty packet, so don't send frame port
+      elementToSend.m_downstreamTransmissionsRemaining = 0;
+    }
+  }*/
+
+  // LOG DS msg transmission
+  // TODO: make new log function for this
+  //uint8_t rwNumber = RW1 ? 1 : 2;
+  //m_dsMsgTransmittedTrace (deviceAddr, elementToSend.m_downstreamTransmissionsRemaining, elementToSend.m_downstreamMsgType, elementToSend.m_downstreamPacket, rwNumber);
+
+  // Make a copy here, this is u
+  Ptr<Packet> p = elementToSend.m_downstreamPacket->Copy (); // make a copy, so that we don't alter elementToSend.m_downstreamPacket as we might re-use this packet later (e.g. retransmission)
+
+  // Construct Frame Header:
+  LoRaWANFrameHeader fhdr;
+  fhdr.setDevAddr (Ipv4Address (deviceAddr));
+  fhdr.setAck (it->second.m_setAck);
+  fhdr.setFramePending (it->second.m_framePending);
+  fhdr.setFrameCounter (it->second.m_fCntDown++); //TODO: maybe count these seperately?
+  if (elementToSend.m_downstreamFramePort > 0)
+    fhdr.setFramePort (elementToSend.m_downstreamFramePort);
+
+  p->AddHeader (fhdr);
+
+  // Add Phy Packet tag to specify channel, data rate and code rate:
+  uint8_t dsChannelIndex = it->second.m_ClassBChannelIndex; //TODO: ensure the defaults of these are set properly 
+  uint8_t dsDataRateIndex = it->second.m_ClassBDataRateIndex; //TODO: ensure the defaults of these are set properly 
+  
+  /*if (RW1) {
+    dsChannelIndex = it->second.m_lastChannelIndex;
+    dsDataRateIndex = LoRaWAN::GetRX1DataRateIndex (it->second.m_lastDataRateIndex, it->second.m_rx1DROffset);
+  } else if (RW2) {
+    dsChannelIndex = LoRaWAN::m_RW2ChannelIndex;
+    dsDataRateIndex = LoRaWAN::m_RW2DataRateIndex;
+  } else {
+    NS_FATAL_ERROR (this << " Either RW1 or RW2 should be true");
+    return;
+  }*/
+
+  LoRaWANPhyParamsTag phyParamsTag;
+  phyParamsTag.SetChannelIndex (dsChannelIndex);
+  phyParamsTag.SetDataRateIndex (dsDataRateIndex);
+  phyParamsTag.SetCodeRate (it->second.m_ClassBCodeRateIndex); //TODO: ensure the defaults of these are set properly 
+  phyParamsTag.SetPreambleLength (8) //TODO: magic number
+  p->AddPacketTag (phyParamsTag);
+
+  // Set Msg type
+  LoRaWANMsgTypeTag msgTypeTag;
+  msgTypeTag.SetMsgType (elementToSend.m_downstreamMsgType); //TODO: ensure the defaults of these are set properly 
+  p->AddPacketTag (msgTypeTag);
+
+  // Update DS Packet counters:
+  it->second.m_nClassBPacketsSent += 1; 
+  /*if (RW1) {
+    m_nrRW1Sent++;
+    it->second.m_nDSPacketsSentRW1 += 1;
+  } else if (RW2) {
+    it->second.m_nDSPacketsSentRW2 += 1;
+    m_nrRW2Sent++;
+  }
+  if (it->second.m_setAck)
+    it->second.m_nDSAcks += 1;*/
+
+  // Store gatewayPtr as last DS GW:
+  //it->second.m_lastDSGW = gatewayPtr;
+
+  // Ask gateway application to send the DS packet:
+  gw->SendDSPacket (p);
+  NS_LOG_DEBUG (this << " Sent DS Packet to device addr " << deviceAddr << " via GW #" << gatewayPtr->GetNode()->GetId() << " in Class B Downlink");
+
+  // Reset data structures
+  //it->second.m_setAck = false; // we only sent an Ack once, see Note on page 75 of LoRaWAN std
+
+  // For some cases (see deleteQueueElement bool), remove the pending DS packet here
+  //if (deleteQueueElement) {
+  // this->DeleteFirstDSQueueElement (deviceAddr);
+  //}
+  // delete the element
+  // TODO: maybe this should be done after it is sure that the sending of a packet during the ping slot was a success? The transceiver could be busy. 
+  LoRaWANNSDSQueueElement* ptr = it->second.m_ClassBdownstreamQueue.front ();
+  delete ptr;
+  it->second.m_ClassBdownstreamQueue.pop_front ();
+}
+else
+{
+    //log err
+    NS_LOG_INFO (this << " Ping slot overlap. Potential packet to " << deviceAddr << " not sent. Aborting DS transmission");
+    return;
+}
+
+
+
 }
 
 // In real LoRaWAN networks the timings of beacons is defined to be every 128 seconds, starting from the beginning of GPS time. 
@@ -974,27 +1131,27 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr)
 uint64_t
 LoRaWANNetworkServer::getGPSTimeFromUnixTime(uint64_t unixMS)
 {
-    
-    uint64_t msInSecond = 1000;
+
+  uint64_t msInSecond = 1000;
     // Difference in time between Jan 1, 1970 (Unix epoch) and Jan 6, 1980 (GPS epoch).
-    uint64_t gpsUnixEpochDiffMS = 315964800000;
+  uint64_t gpsUnixEpochDiffMS = 315964800000;
 
     //Fractional seconds indicate this is a leap second??? TODO: ensure unix time got from OS is in correct format for this to work.
-    bool isLeap = (unixMS % msInSecond) != 0;
-    if(isLeap) {
-      unixMS -= msInSecond / 2;
-    }
+  bool isLeap = (unixMS % msInSecond) != 0;
+  if(isLeap) {
+    unixMS -= msInSecond / 2;
+  }
 
-    uint64_t gpsMS = unixMS - gpsUnixEpochDiffMS;
+  uint64_t gpsMS = unixMS - gpsUnixEpochDiffMS;
 
-    gpsMS += (countLeaps(gpsMS, true) * msInSecond);
+  gpsMS += (countLeaps(gpsMS, true) * msInSecond);
 
-    if(isLeap)
-    {
-      gpsMS += msInSecond;
-    }
+  if(isLeap)
+  {
+    gpsMS += msInSecond;
+  }
 
-    return gpsMS;
+  return gpsMS;
 }
 
 uint64_t
@@ -1005,9 +1162,9 @@ LoRaWANNetworkServer::countLeaps(uint64_t gpsMS, bool isUnixToGPS)
   // List of GPS leaps in milliseconds.  This will need to stay updated as new leap seconds are announced in
 // the future.
   uint64_t gpsLeapMS[] = {
-  46828800000, 78364801000, 109900802000, 173059203000, 252028804000, 315187205000, 346723206000,
-  393984007000, 425520008000, 457056009000, 504489610000, 551750411000, 599184012000, 820108813000,
-  914803214000, 1025136015000, 1119744016000, 1167264017000
+    46828800000, 78364801000, 109900802000, 173059203000, 252028804000, 315187205000, 346723206000,
+    393984007000, 425520008000, 457056009000, 504489610000, 551750411000, 599184012000, 820108813000,
+    914803214000, 1025136015000, 1119744016000, 1167264017000
   };
 
   for(uint i=0; i<sizeof(gpsLeapMS)/sizeof(gpsLeapMS[0]); i++)
@@ -1055,9 +1212,9 @@ LoRaWANNetworkServer::getRelativeGPSTime(uint64_t secondsPassed)
 ////////////////////////////////////////////////////////////
 
 LoRaWANGatewayApplication::LoRaWANGatewayApplication ()
-  : m_socket (0),
-    m_connected (false),
-    m_totalRx (0)
+: m_socket (0),
+m_connected (false),
+m_totalRx (0)
 {
   NS_LOG_FUNCTION (this);
 }
@@ -1066,12 +1223,12 @@ TypeId
 LoRaWANGatewayApplication::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::LoRaWANGatewayApplication")
-    .SetParent<Application> ()
-    .SetGroupName("Applications")
-    .AddConstructor<LoRaWANGatewayApplication> ()
-    .AddTraceSource ("Tx", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
-                     "ns3::Packet::TracedCallback")
+  .SetParent<Application> ()
+  .SetGroupName("Applications")
+  .AddConstructor<LoRaWANGatewayApplication> ()
+  .AddTraceSource ("Tx", "A new packet is created and is sent",
+   MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
+   "ns3::Packet::TracedCallback")
   ;
   return tid;
 }
@@ -1167,10 +1324,10 @@ void LoRaWANGatewayApplication::SendDSPacket (Ptr<Packet> p)
   m_socket->Send (p);
 
   NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                << "s LoRaWANGatewayApplication application on node #"
-                << GetNode()->GetId()
-                << " sent a downstream packet of size "
-                <<  p->GetSize ());
+    << "s LoRaWANGatewayApplication application on node #"
+    << GetNode()->GetId()
+    << " sent a downstream packet of size "
+    <<  p->GetSize ());
 }
 
 // Application Methods
@@ -1180,11 +1337,11 @@ void LoRaWANGatewayApplication::StartApplication () // Called at time specified 
 
   // Create the socket if not already
   if (!m_socket)
-    {
-      m_socket = Socket::CreateSocket (GetNode (), TypeId::LookupByName ("ns3::PacketSocketFactory"));
-      m_socket->Bind ();
+  {
+    m_socket = Socket::CreateSocket (GetNode (), TypeId::LookupByName ("ns3::PacketSocketFactory"));
+    m_socket->Bind ();
 
-      PacketSocketAddress socketAddress;
+    PacketSocketAddress socketAddress;
       socketAddress.SetSingleDevice (GetNode ()->GetDevice (0)->GetIfIndex ()); // Set the address to match only a specified NetDevice...
       m_socket->Connect (Address (socketAddress)); // packet-socket documentation mentions: "Send: send the input packet to the underlying NetDevices with the default destination address. The socket must be bound and connected."
 
@@ -1196,21 +1353,21 @@ void LoRaWANGatewayApplication::StartApplication () // Called at time specified 
 
   // instruct Network Server to populate end devices data structure:
   // NOTE that we call PopulateEndDevices in StartApplication and not in DoInitialize as the attributes for the NetworkServer object have not yet been set at the of DoInitialize()
-  this->m_lorawanNSPtr->PopulateEndDevices ();
-}
+    this->m_lorawanNSPtr->PopulateEndDevices ();
+  }
 
 void LoRaWANGatewayApplication::StopApplication () // Called at time specified by Stop
 {
   NS_LOG_FUNCTION (this);
 
   if(m_socket != 0)
-    {
-      m_socket->Close ();
-    }
+  {
+    m_socket->Close ();
+  }
   else
-    {
-      NS_LOG_WARN ("LoRaWANGatewayApplication found null socket to close in StopApplication");
-    }
+  {
+    NS_LOG_WARN ("LoRaWANGatewayApplication found null socket to close in StopApplication");
+  }
 }
 
 void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
@@ -1219,103 +1376,103 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
   Ptr<Packet> packet;
   Address from;
   while ((packet = socket->RecvFrom (from)))
-    {
-      if (packet->GetSize () == 0)
+  {
+    if (packet->GetSize () == 0)
         { //EOF
           break;
         }
-      m_totalRx += packet->GetSize ();
+        m_totalRx += packet->GetSize ();
 
-      if (PacketSocketAddress::IsMatchingType (from))
+        if (PacketSocketAddress::IsMatchingType (from))
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                       << "s gateway on node #"
-                       << GetNode()->GetId()
-                       <<  " received " << packet->GetSize () << " bytes from "
-                       << PacketSocketAddress::ConvertFrom(from).GetPhysicalAddress ()
-                       << ", total Rx " << m_totalRx << " bytes");
+           << "s gateway on node #"
+           << GetNode()->GetId()
+           <<  " received " << packet->GetSize () << " bytes from "
+           << PacketSocketAddress::ConvertFrom(from).GetPhysicalAddress ()
+           << ", total Rx " << m_totalRx << " bytes");
 
           this->m_lorawanNSPtr->HandleUSPacket (this, from, packet);
         }
-      else
+        else
         {
           NS_LOG_WARN (this << " Unexpected address type");
         }
+      }
     }
-}
 
-void LoRaWANGatewayApplication::ConnectionSucceeded (Ptr<Socket> socket)
-{
-  NS_LOG_FUNCTION (this << socket);
-  m_connected = true;
-}
+    void LoRaWANGatewayApplication::ConnectionSucceeded (Ptr<Socket> socket)
+    {
+      NS_LOG_FUNCTION (this << socket);
+      m_connected = true;
+    }
 
-void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
-{
-  NS_LOG_FUNCTION (this << socket);
-}
+    void LoRaWANGatewayApplication::ConnectionFailed (Ptr<Socket> socket)
+    {
+      NS_LOG_FUNCTION (this << socket);
+    }
 
 
 ////////////////////////////////////////////////////////////
 //Modifications added by Joe to enable Class B
 
 // timestamp is the number of seconds in GPS time % 2^32
-void 
-LoRaWANGatewayApplication::SendBeacon (Ptr<Packet> packet)
-{
+    void 
+    LoRaWANGatewayApplication::SendBeacon (Ptr<Packet> packet)
+    {
   //extract payload from packet
-  uint8_t beacon[17];
-  packet->CopyData(beacon, 17);
+      uint8_t beacon[17];
+      packet->CopyData(beacon, 17);
 
   // Get location from mobility model
   // the mobility model has a getPosition function.
   // get the current node attached to this gateway application, then get the mobility model attached to that node, then call getPosition
   // the position returned is in the format (x,y,z), in Carthesian coordinates (all doubles). 24 byte words for GPS latitude and longitude are expected in real LoRaWAN beacons
   // but as we are not planning to currently use the location data we will just use the first (LSB) 24 bytes of the position given in the mobility model 
-  Vector position;
-  Ptr<MobilityModel> mobility = GetNode()->GetObject<MobilityModel>();
-  if (mobility){
-    position = mobility->GetPosition();
-  }
-  else
-  {
-    position = Vector(0,0,0);
-  }
-  
+      Vector position;
+      Ptr<MobilityModel> mobility = GetNode()->GetObject<MobilityModel>();
+      if (mobility){
+        position = mobility->GetPosition();
+      }
+      else
+      {
+        position = Vector(0,0,0);
+      }
+
   // GwSpecific gives GPS coordinates of the gateway
   // first byte: 0, 1, 2 specify GPS coordinates of 1st, 2nd, 3rd antennas respectively 
   // 3:127 are RFU
   // 128:255 are reserved for custom network specific broadcasts (TODO: we can use this?)
   // for now in our simulations we can assume first byte is 0.
   // the other 6 bytes encode the latitude and longitude of the antenna in a two's complement 24 bit word.
-  beacon[8] = 0x00;
-  
+      beacon[8] = 0x00;
+
   // convert a 64-bit double to an unsigned 32-bit int. Then put the lowest 24 bits into the buffer. Works fine up to 2^32
   // TODO: note that this is not related to the proper LoRaWAN method.
   //lat
-  double lat_d = position.at(0);
-  lat_d += 6755399441055744.0;
-  uint32_t lat = reinterpret_cast<uint32_t&>(lat_d);
-  beacon[9] = (lat >> 0)   & 0xFF;
-  beacon[10] = (lat >> 8)  & 0xFF;
-  beacon[11] = (lat >> 16) & 0xFF;
+      double lat_d = position.at(0);
+      lat_d += 6755399441055744.0;
+      uint32_t lat = reinterpret_cast<uint32_t&>(lat_d);
+      beacon[9] = (lat >> 0)   & 0xFF;
+      beacon[10] = (lat >> 8)  & 0xFF;
+      beacon[11] = (lat >> 16) & 0xFF;
 
   //long
-  double longi_d = position.at(0);
-  longi_d += 6755399441055744.0;
-  uint32_t longi = reinterpret_cast<uint32_t&>(lat_d);
-  beacon[12] = (longi >> 0)  & 0xFF;
-  beacon[13] = (longi >> 8)  & 0xFF;
-  beacon[14] = (longi >> 16) & 0xFF;
+      double longi_d = position.at(0);
+      longi_d += 6755399441055744.0;
+      uint32_t longi = reinterpret_cast<uint32_t&>(lat_d);
+      beacon[12] = (longi >> 0)  & 0xFF;
+      beacon[13] = (longi >> 8)  & 0xFF;
+      beacon[14] = (longi >> 16) & 0xFF;
 
   //then another CRC check
   // we're not actually implementing the CRC check, but if we were this is where it would be done.
-  beacon[15] = 0x00;
-  beacon[16] = 0x00;
+      beacon[15] = 0x00;
+      beacon[16] = 0x00;
 
   //build a new packet wuth the modified data
   //an alternative to this would be to use PeekData to get a pointer to the data buffer, but this is less messy
-  Packet p =  Create<Packet> (beacon, 17);
+      Packet p =  Create<Packet> (beacon, 17);
 
   //add the tags to the packet
   //note that there is no frame header in beacons
@@ -1354,6 +1511,34 @@ LoRaWANGatewayApplication::SendBeacon (Ptr<Packet> packet)
 }
 
 
+void
+LoRaWANGatewayApplication::RequestPingSlot (uint64_t slot, uint32_t devAddr)
+{
+  m_pingSlots[slot].push_back(devAddr);
+}
+
+void
+LoRaWANGatewayApplication::ClearPingSlotQueues ()
+{
+  //TODO: magic numbers
+  for(uint i=0; i<4096; i++){
+    m_pingSlots[slot].clear();  
+  }
+  
+}
+
+bool
+LoRaWANGatewayApplication::IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr)
+{
+  if(m_pingSlots[slot].at(0) == devAddr)
+  {
+    return true;
+  }
+  else 
+  {
+    return false;
+  }
+}
 
 
 ////////////////////////////////////////////////////////////

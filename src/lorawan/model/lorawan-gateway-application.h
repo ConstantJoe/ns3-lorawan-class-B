@@ -126,6 +126,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint8_t     m_ClassBPingPeriodicity;
   uint8_t     m_ClassBChannelIndex;
   uint8_t     m_ClassBDataRateIndex;  
+  uint8_t     m_ClassBCodeRateIndex;
   //////////////////////////////////
 
   EventId     m_downstreamTimer; // DS traffic generator timer
@@ -170,7 +171,7 @@ public:
   uint64_t getGPSTimeFromUnixTime(uint64_t unixMS);
   uint64_t countLeaps(uint64_t gpsMS, bool isUnixToGPS);
   bool shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS);
-{
+
   //////////////////////////////////
 
 private:
@@ -205,7 +206,7 @@ private:
 
     uint8_t     m_ClassBBeaconChannelIndex;
     uint8_t     m_ClassBBeaconDataRateIndex;
-    uint64_t m_simulationStartTime;
+    uint64_t    m_simulationStartTime;
 
     //TODO: modify LoRaWANEndDeviceInfoNS to add another queue specifically for Class B downlinks (like second.m_downstreamQueue and second.m_nDSPacketsGenerated are used now)
   //////////////////////////////////
@@ -270,6 +271,10 @@ public:
 
   ////////////////////////////////////////////////////////////
   void SendBeacon (Time timestamp);
+
+  void RequestPingSlot (uint64_t slot, uint32_t devAddr); 
+
+  void clearPingSlotQueues();
   ////////////////////////////////////////////////////////////
 protected:
   virtual void DoInitialize (void);
@@ -298,6 +303,8 @@ private:
   uint32_t        m_fCntUp;       //!< Uplink frame counter
   uint32_t        m_fCntDown;     //!< Downlink frame counter
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
+
+  std::vector<uint32_t> m_pingSlots[4096]; //An array of vectors. The NS adds to each vector in the initial allocation, then the first request is sent in the ping slot. The others are not.  
 
   /// Traced Callback: transmitted packets.
   TracedCallback<Ptr<const Packet> > m_txTrace;
