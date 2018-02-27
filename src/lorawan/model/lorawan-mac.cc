@@ -43,7 +43,6 @@ operator<< (std::ostream& os, const LoRaWANDataRequestParams& p)
     << static_cast<uint32_t> (p.m_loraWANChannelIndex)
     << "," << static_cast<uint32_t> (p.m_loraWANDataRateIndex)
     << "," << static_cast<uint32_t> (p.m_loraWANCodeRate)
-    << "," << static_cast<uint32_t> (p.m_loraWANPreambleLength)
     << "," << static_cast<uint32_t> (p.m_msgType)
     << "," << static_cast<uint32_t> (p.m_requestHandle)
     << "," << static_cast<uint32_t> (p.m_numberOfTransmissions)
@@ -418,7 +417,7 @@ LoRaWANMac::PdDataDestroyed (void)
 }
 
 void
-LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate, uint8_t preambleLength)
+LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate/*, uint8_t preambleLength*/)
 {
   // TODO: which state?
 
@@ -523,7 +522,12 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
     params.m_channelIndex = channelIndex;
     params.m_dataRateIndex = dataRateIndex;
     params.m_codeRate = codeRate;
-    params.m_preambleLength = preambleLength;
+
+    //TODO: ensure that this is needed
+    //
+    //params.m_preambleLength = preambleLength;
+
+
     params.m_msgType = macHdr.getLoRaWANMsgType ();
     params.m_endDeviceAddress = frameHdr.getDevAddr (); // Note that a gateway can not access the Dev Addr due to encryption of the MACPayload
     params.m_MIC = MIC;
@@ -612,7 +616,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
 
   NS_ASSERT (m_txPkt);
   LoRaWANMacHeader macHdr;
-  m_txPkt->PeekHeader (macHdr);
+  long int size_peeked = m_txPkt->PeekHeader (macHdr);
 
   //std::ostringstream os;
   //m_txPkt->Print (os);
@@ -627,7 +631,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
       //Beacons have no MAC header, factoring this in.
       /////////////////////////////////////
 
-      if (!macHdr)
+      if (size_peeked == 0) //TODO: test this works
       {
         // no MAC header = Class B beacon.
         // don't send the same beacon again, the timestamp will be out of date
@@ -745,7 +749,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // Gateways may send downstream, end devices only send upstream data
   if (m_deviceType == LORAWAN_DT_GATEWAY) {
-    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN | params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
+    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
       NS_LOG_ERROR (this << " Gateway only supports downstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
     }
@@ -807,7 +811,7 @@ Ptr<Packet>
 LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
 {
   //In beacons, there is no LoRa physical header, MacHeader, or MIC.
-  if (!params.m_msgType == LORAWAN_BEACON){
+  if (!(params.m_msgType == LORAWAN_BEACON)){
     // PHYPayload consists of MAC header, MACPayload and MIC
   LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
   p->AddHeader (lorawanMacHdr);
@@ -1318,14 +1322,15 @@ LoRaWANMac::AssignStreams (int64_t stream)
 
 //////////////////////////////////////////////
 //send Class B beacon.  Based on...
-void
+/*void
 LoRaWANMac::SendBeacon ()
 {
 
-}
+}*/
 
 //wake up to receive Class B beacon.  Based on OpenRW
-void
+// TODO: add this back in maybe, when completed.
+/*void
 LoRaWANMac::ReceiveBeacon ()
 {
     uint8_t channelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
@@ -1348,7 +1353,7 @@ LoRaWANMac::ReceiveBeacon ()
 
     Time preambleTime = m_phy->CalculatePreambleTime ();
     m_preambleDetected = Simulator::Schedule (preambleTime, &LoRaWANMac::CheckPhyPreamble, this);
-} 
+} */
 
 //////////////////////////////////////////////
 

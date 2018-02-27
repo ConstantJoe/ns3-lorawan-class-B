@@ -30,6 +30,10 @@
 #include "ns3/simple-ref-count.h"
 #include "ns3/random-variable-stream.h"
 
+////////////
+#include "ns3/vector.h"
+#include <ns3/mobility-model.h>
+////////////
 #include "ns3/lorawan.h"
 #include <unordered_map>
 #include <deque>
@@ -92,6 +96,9 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint8_t         m_lastChannelIndex;
   uint8_t         m_lastCodeRate;
   Time            m_lastSeen;
+  /////////////////////
+  uint8_t         m_lastPreambleLength;
+  /////////////////////
   bool            m_framePending;
   bool            m_setAck;
   uint32_t        m_fCntUp;       //!< Uplink frame counter
@@ -166,9 +173,11 @@ public:
   // Code in here has been added by Joe.
   void ClassBDSTimerExpired (uint32_t deviceAddr); //generates downlink packets for Class B. May be removed to a seperate data generator class later.
   void ClassBSendBeacon ();
-  void ClassBPingSlot(uint32_t devAddr);
+  void ClassBPingSlot(uint32_t devAddr, uint64_t pingTime);
 
+  uint64_t getGPSTime();
   uint64_t getGPSTimeFromUnixTime(uint64_t unixMS);
+  uint64_t getRelativeGPSTime(uint64_t secondsPassed);
   uint64_t countLeaps(uint64_t gpsMS, bool isUnixToGPS);
   bool shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS);
 
@@ -270,11 +279,13 @@ public:
 
 
   ////////////////////////////////////////////////////////////
-  void SendBeacon (Time timestamp);
+  void SendBeacon (Ptr<Packet> packet);
 
   void RequestPingSlot (uint64_t slot, uint32_t devAddr); 
 
-  void clearPingSlotQueues();
+  void ClearPingSlotQueues();
+
+  bool IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr);
   ////////////////////////////////////////////////////////////
 protected:
   virtual void DoInitialize (void);

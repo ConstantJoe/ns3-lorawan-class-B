@@ -276,7 +276,7 @@ public:
   void SwitchToIdleState ();
 
   void PdDataDestroyed (void);
-  void PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate, uint8_t preambleLength);
+  void PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t lqi, uint8_t channelIndex, uint8_t dataRateIndex, uint8_t codeRate/*, uint8_t preambleLength*/);
 
   /**
    *  Report status of Phy TRX state switch to MAC

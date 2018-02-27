@@ -459,7 +459,8 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   //unlikely, but I guess its possible. Talk to Shahwaiz about this. If we decide not to do this, then the original authors' gateway version will also have to be changed. 
   //If we do decide to do this, then save the MAC layer as a variable,
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
-  netDevice->GetMac()->ReceiveBeacon();
+  //TODO: uncomment out when this function is completed.
+  //netDevice->GetMac()->ReceiveBeacon();
 
    
 
@@ -476,7 +477,7 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots ()
   //TODO: this function should be fired from the MAC layer when the beacon is received (set the callback?)
   //should function identically to the Network Server equivalent.
 
-    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;
+    /*uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;
     uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
     uint8_t buf[16];
 
@@ -505,30 +506,30 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots ()
       buf[i] = 0;
     }
 
-    /*std::cout << "Unencrypted message: "; 
+    std::cout << "Unencrypted message: "; 
     for(uint i=0; i<16;i++){
       printf("%x ", buf[i]);;
     }    
-    std::cout << std::endl;*/
+    std::cout << std::endl;
 
     AES aes;
 
     aes.SetKey(key, 16);
     aes.Encrypt(buf, 16);
 
-    /*std::cout << "Encrypted message: "; 
+    std::cout << "Encrypted message: "; 
     for(uint i=0; i<16;i++){
       printf("%x ", buf[i]);
       //std::cout << std::hex << buf[i];
     }    
     std::cout << std::endl;
 
-    std::cout << std::dec;*/
+    std::cout << std::dec;
 
    
     uint64_t O = (buf[0] + buf[1]*256) % period;
 
-    /*printf("%d ", period);
+    printf("%d ", period);
     printf("%d ", O);*/
 
     //std::cout << "Offset: " << O << std::endl;

@@ -586,6 +586,8 @@ private:
   uint8_t m_preambleLength;
   bool m_crcOn;
 
+  bool m_implicitHeader;
+
 }; // class LoRaWANPhy
 
 

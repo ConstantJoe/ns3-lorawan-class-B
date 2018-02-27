@@ -112,6 +112,10 @@ private:
 
   void HandleDSPacket (Ptr<Packet> p, Address from);
 
+  //////////////////////////////////////
+  void ClassBSchedulePingSlots ();
+  //////////////////////////////////////
+
   Ptr<Socket>     m_socket;       //!< Associated socket
   bool            m_connected;    //!< True if connected
   Ptr<RandomVariableStream> m_channelRandomVariable;	//!< rng for channel selection for upstream TX
