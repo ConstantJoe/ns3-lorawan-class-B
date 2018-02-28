@@ -940,7 +940,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
       auto gw = d->second.m_lastGWs.cbegin(); 
       (*gw)->RequestPingSlot(O + period*i, dAddr);
       Time ping = MilliSeconds(pingTime); 
-      //Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, dAddr, O + period*i);
+      Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
       //TODO: err here. Read documentation for this class.
     }
 
