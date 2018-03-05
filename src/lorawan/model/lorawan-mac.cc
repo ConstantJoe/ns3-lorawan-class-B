@@ -350,7 +350,15 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
 
       // Request to Put Phy into LORAWAN_PHY_FORCE_TRX_OFF
       m_phy->SetTRXStateRequest (LORAWAN_PHY_FORCE_TRX_OFF);
-  } else {
+  } else if (macState == MAC_BEACON) {
+    ///////////////////////////////////
+    NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive beacon from idle mode
+    ChangeMacState (macState);
+
+     OpenRW ();    
+    ///////////////////////////////////
+  }
+  else {
     NS_FATAL_ERROR (this << " unknown MAC state " << macState);
   }
 }
@@ -448,99 +456,120 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
 
   Ptr<Packet> pktCopy = p->Copy (); // don't alter the original packet when removing headers
   LoRaWANMacHeader macHdr;
-  pktCopy->RemoveHeader (macHdr);
+  uint32_t headerLength = pktCopy->RemoveHeader (macHdr);
 
   // Check MAC:
+  ////////////////////////////
+  //modifying this to include beacon frame, which has no header
+  ////////////////////////////
   // 1) Header: msg type
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // Class A only accepts downstream
-    if (!macHdr.IsDownstream ()) {
-      acceptFrame = false;
+  if(headerLength == 0) {
+    //TODO: this could be cleaned up
+    LoRaWANDataIndicationParams params;
+    params.m_channelIndex = channelIndex;
+    params.m_dataRateIndex = dataRateIndex;
+    params.m_codeRate = codeRate;
+    params.m_msgType = LORAWAN_BEACON;
+     uint32_t bc_addr = 0;
+    Ipv4Address bc(bc_addr);
+    params.m_endDeviceAddress = bc; // packet was broadcasted
+    params.m_MIC = 0; // no MIC in beacon
+
+    if (!m_dataIndicationCallback.IsNull ())
+    {
+      NS_LOG_DEBUG ("PdDataIndication ():  Beacon received; forwarding up");
+      m_dataIndicationCallback (params, pktCopy);
     }
-  } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway only accepts upstream
-    if (!macHdr.IsUpstream ()) {
-      acceptFrame = false;
+  }
+  else {
+    if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // Class A only accepts downstream
+      if (!macHdr.IsDownstream ()) {
+        acceptFrame = false;
+      }
+    } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway only accepts upstream
+      if (!macHdr.IsUpstream ()) {
+        acceptFrame = false;
+      }
+
+    } else {
+      NS_FATAL_ERROR ( this << " Invalid device type " << m_deviceType);
+      return;
+    }
+    // 2) MIC: ignore, no encryption at the moment
+    // Remove MIC from footer of frame:
+    uint32_t MIC = 0;
+    pktCopy->RemoveAtEnd (4);
+
+    LoRaWANFrameHeader frameHdr;
+    pktCopy->PeekHeader (frameHdr);
+    // For end devices check FHDR:
+    if (m_deviceType != LORAWAN_DT_GATEWAY) {
+      // 1) DevAddr
+      if (m_devAddr != frameHdr.getDevAddr ()) //TODO: NOTE this is where filter of packets get performed
+        acceptFrame = false;
+      // 2) Frame counter?
     }
 
-  } else {
-    NS_FATAL_ERROR ( this << " Invalid device type " << m_deviceType);
-    return;
-  }
-  // 2) MIC: ignore, no encryption at the moment
-  // Remove MIC from footer of frame:
-  uint32_t MIC = 0;
-  pktCopy->RemoveAtEnd (4);
-
-  LoRaWANFrameHeader frameHdr;
-  pktCopy->PeekHeader (frameHdr);
-  // For end devices check FHDR:
-  if (m_deviceType != LORAWAN_DT_GATEWAY) {
-    // 1) DevAddr
-    if (m_devAddr != frameHdr.getDevAddr ())
-      acceptFrame = false;
-    // 2) Frame counter?
-  }
-
-  if (acceptFrame) {
-    m_macRxTrace (p);
-    if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
-      // Check Ack bit (?) -> for class A, can remove frame that is pending in TX queue
-      // Class A: check FPending bit (?) -> should schedule a new TX op soon
-      // Class A: we are freed from waiting on RW2.
-      if (frameHdr.IsAck ()) { // process Ack for Class A device
-        if (m_txPkt != 0) {
-          m_macTxOkTrace (m_txPkt);
-          m_ackTimeOut.Cancel ();
-          if (!m_dataConfirmCallback.IsNull ())
-          { // Call callback, informing succesfull delivery of frame
+    if (acceptFrame) {
+      m_macRxTrace (p);
+      if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A && headerLength != 0) {
+        // Check Ack bit (?) -> for class A, can remove frame that is pending in TX queue
+        // Class A: check FPending bit (?) -> should schedule a new TX op soon
+        // Class A: we are freed from waiting on RW2.
+        if (frameHdr.IsAck ()) { // process Ack for Class A device
+          if (m_txPkt != 0) {
+            m_macTxOkTrace (m_txPkt);
+            m_ackTimeOut.Cancel ();
+            if (!m_dataConfirmCallback.IsNull ())
+            { // Call callback, informing succesfull delivery of frame
               TxQueueElement *txQElement = m_txQueue.front ();
               LoRaWANDataConfirmParams confirmParams;
               confirmParams.m_requestHandle = txQElement->lorawanDataRequestParams.m_requestHandle;
               confirmParams.m_status = LORAWAN_SUCCESS;
               m_dataConfirmCallback (confirmParams);
-          }
+            }
 
-          // Remove TX frame from queue
-          NS_LOG_DEBUG( this << " Received Ack, removing packet from queue.");
-          RemoveFirstTxQElement (true);
-        } else {
-          NS_LOG_ERROR ( this << " Received Ack but do not have a frame queued for delivery." );
+            // Remove TX frame from queue
+            NS_LOG_DEBUG( this << " Received Ack, removing packet from queue.");
+            RemoveFirstTxQElement (true);
+          } else {
+            NS_LOG_ERROR ( this << " Received Ack but do not have a frame queued for delivery." );
+          }
         }
+
+        // Update MAC state from RW1 or RW2 to IDLE, this will set the Phy TRX state to OFF
+        m_setMacState.Cancel ();
+        m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
+      } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+        // MAC state does not change (remains IDLE),
+        // When Phy reaches EndRx it will switch its state to RX_ON, which is fine for the gateway
       }
 
-      // Update MAC state from RW1 or RW2 to IDLE, this will set the Phy TRX state to OFF
-      m_setMacState.Cancel ();
-      m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
-    } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
-      // MAC state does not change (remains IDLE),
-      // When Phy reaches EndRx it will switch its state to RX_ON, which is fine for the gateway
-    }
-
-    // Deliver frame
-    // TODO: What if the frame contains no Data, still deliver it?
-    // Ack frames should  get delivered anyway for gateways (?)
-    LoRaWANDataIndicationParams params;
-    params.m_channelIndex = channelIndex;
-    params.m_dataRateIndex = dataRateIndex;
-    params.m_codeRate = codeRate;
-
-    //TODO: ensure that this is needed
-    //
-    //params.m_preambleLength = preambleLength;
-
-
-    params.m_msgType = macHdr.getLoRaWANMsgType ();
-    params.m_endDeviceAddress = frameHdr.getDevAddr (); // Note that a gateway can not access the Dev Addr due to encryption of the MACPayload
-    params.m_MIC = MIC;
-    if (!m_dataIndicationCallback.IsNull ())
-    {
-      NS_LOG_DEBUG ("PdDataIndication ():  Packet is for me; forwarding up");
-      m_dataIndicationCallback (params, pktCopy);
-    }
-  } else {
-    m_macRxDropTrace (p);
-    if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // An end device received a frame in its RW, but the frame was not destined to this end device
-      // Just close the receive window
-      CloseRW ();
+      // Deliver frame
+      // TODO: What if the frame contains no Data, still deliver it?
+      // Ack frames should  get delivered anyway for gateways (?)
+      LoRaWANDataIndicationParams params;
+      params.m_channelIndex = channelIndex;
+      params.m_dataRateIndex = dataRateIndex;
+      params.m_codeRate = codeRate;
+      params.m_msgType = macHdr.getLoRaWANMsgType ();
+      params.m_endDeviceAddress = frameHdr.getDevAddr (); // Note that a gateway can not access the Dev Addr due to encryption of the MACPayload
+      params.m_MIC = MIC;
+      //TODO: ensure that this is needed
+      //
+      //params.m_preambleLength = preambleLength;
+      
+      if (!m_dataIndicationCallback.IsNull ())
+      {
+        NS_LOG_DEBUG ("PdDataIndication ():  Packet is for me; forwarding up");
+        m_dataIndicationCallback (params, pktCopy);
+      }
+    } else {
+      m_macRxDropTrace (p);
+      if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // An end device received a frame in its RW, but the frame was not destined to this end device
+        // Just close the receive window
+        CloseRW ();
+      }
     }
   }
 }
@@ -1081,7 +1110,24 @@ LoRaWANMac::OpenRW ()
         StartAckTimeoutTimer ();
       }
     }
-  } else {
+  } 
+  /////////////////////////////////////////////////////////
+  else if (m_LoRaWANMacState == MAC_BEACON) {
+    // beacon uses a set channel and data rate defined in the spec
+    uint8_t channelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
+    // Note: this also appears to be the only channel outside of the main subband?
+    uint8_t dataRateIndex = 3; // SF9, 125kHz BW. Mandetory for Class B beacons.
+
+    uint8_t subBandIndex = LoRaWAN::m_supportedChannels [channelIndex].m_subBandIndex;
+    uint8_t maxTxPower = m_lorawanMacRDC->GetMaxPowerForSubBand (subBandIndex);
+
+    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, 3, 10, true, false) ) {
+      NS_LOG_ERROR (this << " unable to configure Phy");
+      return;
+    } 
+  }
+  /////////////////////////////////////////////////////////
+  else {
       NS_LOG_ERROR (this << " MAC state incorrect " << m_LoRaWANMacState);
     return;
   }
@@ -1140,7 +1186,11 @@ LoRaWANMac::CloseRW ()
     }
   } 
   //TODO: add in something here to indicate Class B receive failed.
-
+  else if (m_LoRaWANMacState == MAC_BEACON) {
+    //no beacon received, log and go back to idle mode
+    NS_LOG_WARN (this << " Missed beacon. Going directly to MAC_IDLE state.");
+    m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
+  }
   else {
     NS_LOG_ERROR (this << " MAC state incorrect " << m_LoRaWANMacState);
     return;

@@ -56,6 +56,7 @@ typedef enum
   //MAC_RX,              //!< MAC_RX
   MAC_ACK_TIMEOUT, 	 //!< MAC_ACK_TIMEOUT, MAC state during which the MAC is waiting for the ACK_TIMEOUT (no TX is allowed during this state)
   MAC_UNAVAILABLE, 	         //!< MAC_UNAVAILABLE, MAC is currently unavailable to perform any operation (e.g. other MAC on same device is currently sending)
+  MAC_BEACON // rx mode for receiving beacon
 } LoRaWANMacState;
 
 namespace TracedValueCallback {

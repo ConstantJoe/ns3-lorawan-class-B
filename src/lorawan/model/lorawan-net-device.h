@@ -127,6 +127,12 @@ public:
   void SetMTUSpreadingFactor (LoRaSpreadingFactor sf) { this->m_mtuSpreadingFactor = sf; }
   LoRaSpreadingFactor GetMTUSpreadingFactor () { return this->m_mtuSpreadingFactor; }
 
+
+
+  ///////////////////////////
+  void StartReceivingBeacon (void);
+  /////////////////////////////
+
 private:
   // Inherited from NetDevice/Object
   virtual void DoDispose (void);

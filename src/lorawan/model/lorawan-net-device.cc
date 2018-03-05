@@ -709,7 +709,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
   phyParamsTag.SetChannelIndex (params.m_channelIndex);
   phyParamsTag.SetDataRateIndex (params.m_dataRateIndex);
   phyParamsTag.SetCodeRate (params.m_codeRate);
-  phyParamsTag.SetPreambleLength (params.m_preambleLength);
+  phyParamsTag.SetPreambleLength (params.m_preambleLength); //TODO: does this get set? Is it needed?
   pkt->AddPacketTag (phyParamsTag);
 
   // Add MsgTypeTag to packet
@@ -717,7 +717,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
   msgTypeTag.SetMsgType (params.m_msgType);
   pkt->AddPacketTag (msgTypeTag);
 
-  Address senderAddress(params.m_endDeviceAddress);
+  Address senderAddress(params.m_endDeviceAddress); //TODO: ensure NULL is accepted as a broadcast
 
   m_receiveCallback (this, pkt, 0, senderAddress);
 }
@@ -756,5 +756,15 @@ LoRaWANNetDevice::AssignStreams (int64_t stream)
   NS_LOG_DEBUG ("Number of assigned RV streams:  " << (streamIndex - stream));
   return (streamIndex - stream);
 }
+
+
+/////////////////////////////////////////
+void
+LoRaWANNetDevice::StartReceivingBeacon (void)
+{
+  //should only attempt if 
+  m_mac->SetLoRaWANMacState(MAC_BEACON);
+}
+/////////////////////////////////////////
 
 } // namespace ns3

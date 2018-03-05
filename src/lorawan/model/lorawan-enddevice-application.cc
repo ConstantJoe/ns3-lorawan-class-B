@@ -214,14 +214,14 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
 
   //////////////////////////////////////////////
   //Part of Class B implementation (added by Joe)
- /* if(m_isClassB)
+  if(m_isClassB)
   {
       //schedule event to wake up at exact time of next expected beacon
       //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
       Time t = Seconds (128);
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled to be received at " << t);  
-  }*/
+  }
 
   //////////////////////////////////////////////
 
@@ -365,7 +365,11 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
   NS_LOG_FUNCTION (this << socket);
   Ptr<Packet> packet;
   Address from;
-  while ((packet = socket->RecvFrom (from)))
+
+  uint32_t bc_addr = 0;
+  Ipv4Address bc(bc_addr);
+  Address broadcast(bc);
+  while ((packet = socket->RecvFrom (from))) //the sender address is placed into from
     {
       if (packet->GetSize () == 0)
         { //EOF
@@ -373,7 +377,7 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
         }
       m_totalRx += packet->GetSize ();
 
-      if (PacketSocketAddress::IsMatchingType (from))
+      if (PacketSocketAddress::IsMatchingType (from)) //TODO: note this sectence from the doc for this method: This method checks that the types are exactly equal. This method is really used only by the PacketSocketAddress and there is little point in using it otherwise so, you have been warned: DO NOT USE THIS METHOD
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
                        << "s end device on node #"
@@ -384,9 +388,14 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
 
           this->HandleDSPacket (packet, from);
         }
+      ///////////////////////
+      else if (from == broadcast) {
+        NS_LOG_INFO ("Received a beacon?");
+      }
+      ///////////////////////  
       else
         {
-          NS_LOG_WARN (this << " Unexpected address type");
+          NS_LOG_WARN (this << " Unexpected address type"); //TODO: this 
         }
     }
 }
@@ -458,14 +467,14 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   //but will these application layers ever really be used with an alternative PHY layer?
   //unlikely, but I guess its possible. Talk to Shahwaiz about this. If we decide not to do this, then the original authors' gateway version will also have to be changed. 
   //If we do decide to do this, then save the MAC layer as a variable,
-  Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
+  //Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   //TODO: uncomment out when this function is completed.
   //netDevice->GetMac()->ReceiveBeacon();
 
-   
+   // something like setLoRaWANMACState(BEACON);
 
   //schedule next beacon receive.
-  Time t = Seconds (128); //TODO: ensure this is accurate (record at start of function?)
+  Time t = Seconds (128);
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
   std::cout << "Class B beacon scheduled!" << std::endl;
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
