@@ -550,7 +550,9 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   loRaWANDataRequestParams.m_loraWANDataRateIndex = dataRateIndex;
   loRaWANDataRequestParams.m_loraWANCodeRate = codeRate;
   //////////////////////////////////
+
   loRaWANDataRequestParams.m_loraWANPreambleLength = preambleLength;
+  printf("send preambleLength %u\r\n", preambleLength);
   //////////////////////////////////
   
   loRaWANDataRequestParams.m_requestHandle = 0; // TODO

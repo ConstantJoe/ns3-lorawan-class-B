@@ -322,11 +322,15 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   uint32_t channelIndex = m_channelRandomVariable->GetInteger ();
   NS_ASSERT (channelIndex <= LoRaWAN::m_supportedChannels.size () - 2); // -2 because end devices should not use the special high power channel for US traffic
 
+  uint8_t preambleLength = 8; //TODO: move to better place
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (channelIndex);
   phyParamsTag.SetDataRateIndex (m_dataRateIndex);
   phyParamsTag.SetCodeRate (3);
-  phyParamsTag.SetPreambleLength (8);
+
+  phyParamsTag.SetPreambleLength (preambleLength);
+
+  printf("prema: %u\r\n", phyParamsTag.GetPreambleLength ());
   packet->AddPacketTag (phyParamsTag);
 
   // Set Msg type

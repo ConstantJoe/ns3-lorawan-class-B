@@ -199,7 +199,7 @@ LoRaWANPhyParamsTag::GetInstanceTypeId (void) const
 uint32_t
 LoRaWANPhyParamsTag::GetSerializedSize (void) const
 {
-  return 3 * sizeof (uint8_t);
+  return 4 * sizeof (uint8_t);
 }
 
 void
@@ -208,6 +208,7 @@ LoRaWANPhyParamsTag::Serialize (TagBuffer i) const
   i.WriteU8 (m_channelIndex);
   i.WriteU8 (m_dataRateIndex);
   i.WriteU8 (m_codeRate);
+  i.WriteU8 (m_preambleLength);
 }
 
 void
@@ -216,6 +217,7 @@ LoRaWANPhyParamsTag::Deserialize (TagBuffer i)
   m_channelIndex = i.ReadU8();
   m_dataRateIndex = i.ReadU8();
   m_codeRate = i.ReadU8();
+  m_preambleLength = i.ReadU8();
 }
 
 void

@@ -503,6 +503,11 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
     else {
       std::cout << "data indication callback is null." << std::endl;
     }
+
+    //then schedule 
+    // Update MAC state from BEACON to IDLE, this will set the Phy TRX state to OFF
+    m_setMacState.Cancel ();
+    m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
   }
   else {
      std::cout << "Not receiving a beacon!" << std::endl;
@@ -623,6 +628,8 @@ LoRaWANMac::SetTRXStateConfirm (LoRaWANPhyEnumeration status)
       TxQueueElement *txQElement = m_txQueue.front ();
       Time airTime = m_phy->CalculateTxTime (p->GetSize ()); // which PHY does not matter here
       uint8_t subBandIndex = LoRaWAN::m_supportedChannels [txQElement->lorawanDataRequestParams.m_loraWANChannelIndex].m_subBandIndex;
+      std::cout << "sending" << std::endl;
+      std::cout << this << "airtime required is " << airTime << std::endl;
       m_lorawanMacRDC->UpdateRDCTimerForSubBand (subBandIndex, airTime);
 
       // Ask Phy to send Phy payload
@@ -744,6 +751,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
         // Always go to IDLE state for gateway, retransmissions are handled by the network server
         //////////
         // This method is okay for Class B beacons too.
+        std::cout << "Go to idle mode now" << std::endl;
         //////////
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
 
@@ -928,7 +936,7 @@ LoRaWANMac::CheckQueue ()
       return; // return, otherwise we will remove the first tx queue element below
     } else {
       NS_LOG_DEBUG (this << " Cannot sent packet because sub band #" << static_cast<uint16_t>(subBandIndex) << " is not available");
-
+      std::cout <<  this << " Cannot sent packet because sub band #" << static_cast<uint16_t>(subBandIndex) << " is not available" << std::endl; 
       if (m_deviceType != LORAWAN_DT_GATEWAY) {
         m_lorawanMacRDC->ScheduleSubBandTimer (this, subBandIndex); // schedule RDC timer
       }
@@ -948,6 +956,10 @@ LoRaWANMac::CheckQueue ()
   if (m_deviceType == LORAWAN_DT_GATEWAY) {
     if (!m_txQueue.empty ()) {
       // this is a dangereous state to be in, experience has shown that the gateway MACs gets stuck at this point
+      std::cout << "Mac state: " << m_LoRaWANMacState << std::endl;
+
+      //could not be in MAC_IDLE maybe?
+
       this->RemoveFirstTxQElement (false);
       NS_FATAL_ERROR (this << " Gateway is unable to send packet immediately, aborting packet transmission.");
     }
@@ -1049,6 +1061,8 @@ LoRaWANMac::ConfigurePhyForTX () {
 
     /////////////////////////////////
     uint8_t preambleLength = txQElement->lorawanDataRequestParams.m_loraWANPreambleLength;
+
+    printf("confphy preamble length %u\r\n", preambleLength);
 
     bool implicitHeader = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? true : false;
     bool crcOn = (txQElement->lorawanDataRequestParams.m_msgType == LORAWAN_BEACON) ? false : true;
@@ -1396,6 +1410,10 @@ LoRaWANMac::LoRaWANMacRDC::UpdateRDCTimerForSubBand (uint8_t subBandIndex, Time 
 
   m_subBands[subBandIndex].LastTxFinishedTimestamp = LastTxFinishedTimestamp;
   m_subBands[subBandIndex].timeoff = timeoff;
+
+  std::cout << this << " updated RDC for subBand " << (uint16_t)subBandIndex << ": "
+                     << LastTxFinishedTimestamp << ", "
+                     << timeoff << std::endl;
 
   NS_LOG_LOGIC (this << " updated RDC for subBand " << (uint16_t)subBandIndex << ": "
                      << LastTxFinishedTimestamp << ", "

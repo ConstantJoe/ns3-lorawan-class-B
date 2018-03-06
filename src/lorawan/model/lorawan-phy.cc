@@ -873,6 +873,8 @@ LoRaWANPhy::EndTx (void)
 Time
 LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
 {
+  printf("payload length: %u\r\n", payloadLength);
+  
   // calculations per $4.1.1.7 'Time on air' in sx1272 data sheet
   const uint32_t bandwidth = LoRaWAN::m_supportedChannels [m_currentChannelIndex].m_bw;
   const LoRaSpreadingFactor sf = LoRaWAN::m_supportedDataRates [m_currentDataRateIndex].spreadingFactor;
@@ -906,10 +908,62 @@ LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
       << "|" << (uint16_t) m_preambleLength  << "|" << nSymbolsPayload  << "|" << nConditionalSymbolsPayload
       << "|" << txTime << "uS");
 
+  std::cout << "tx time: " << txTime << std::endl;
+  std::cout << "tx time in ms: " << MicroSeconds(txTime) << std::endl;
+
   return MicroSeconds(txTime);
 
 
 }
+
+//old version, checking if my changes are the problem
+/* \param p is the PHYPayload as per the LoRaWAN spec */
+/*Time
+LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
+{
+  std::cout << "payload length: "; 
+
+  //TODO: go through this slowly.
+  
+  //std::cout << std::endl; 
+  // calculations per $4.1.1.7 'Time on air' in sx1272 data sheet
+  const uint32_t bandwidth = LoRaWAN::m_supportedChannels [m_currentChannelIndex].m_bw;
+  const LoRaSpreadingFactor sf = LoRaWAN::m_supportedDataRates [m_currentDataRateIndex].spreadingFactor;
+  
+
+  double symbolRate = ((double)bandwidth)/pow(2.0, sf);
+  double symbolPeriod = 1.0e6/symbolRate; // the symbol period in microseconds
+
+  double nSymbolsPreamble = m_preambleLength + 4.25;
+  uint16_t nSymbolsPayload = 8;
+  // LoRaWAN mandates no imlicit header, assume low data rate optimization (DE) is not used
+  uint32_t crc = 1;
+  if (!m_crcOn)
+    crc = 0;
+
+  printf("%u\r\n", payloadLength);
+  printf("%u\r\n", bandwidth);
+  printf("%u\r\n", sf);
+  printf("%u\r\n", crc);
+  printf("%u\r\n", m_preambleLength); //this is wrong
+  printf("%lf\r\n", nSymbolsPreamble);
+
+  uint16_t nConditionalSymbolsPayload = ceil((8.0*payloadLength - 4.0*sf + 28 + 16*crc)/4.0/(double)sf)*(m_codeRate + 4);
+  if (nConditionalSymbolsPayload > 0.0)
+    nSymbolsPayload += nConditionalSymbolsPayload;
+
+  double txTime = (nSymbolsPreamble + nSymbolsPayload) * symbolPeriod;
+
+  NS_LOG_DEBUG(this << ": " << sf  << "|" << (uint16_t)m_codeRate  << "|" << (uint16_t)payloadLength
+      << "|" << (uint16_t) m_preambleLength  << "|" << nSymbolsPayload  << "|" << nConditionalSymbolsPayload
+      << "|" << txTime << "uS");
+
+  std::cout << "tx time: " << txTime << std::endl;
+  std::cout << "tx time in ms: " << MicroSeconds(txTime) << std::endl;
+
+  return MicroSeconds(txTime);
+}*/
+
 
 Time
 LoRaWANPhy::CalculatePreambleTime ()

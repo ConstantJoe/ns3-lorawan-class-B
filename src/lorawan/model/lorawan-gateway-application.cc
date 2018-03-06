@@ -543,11 +543,12 @@ LoRaWANNetworkServer::SendDSPacket (uint32_t deviceAddr, Ptr<LoRaWANGatewayAppli
     return;
   }
 
+  uint8_t preambleLength = 8; //TODO: move to better place
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
   phyParamsTag.SetCodeRate (it->second.m_lastCodeRate);
-  phyParamsTag.SetPreambleLength (8); //TODO: magic number
+  phyParamsTag.SetPreambleLength (preambleLength); 
   p->AddPacketTag (phyParamsTag);
 
   // Set Msg type
@@ -937,14 +938,16 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     uint32_t dAddr = (uint32_t) deviceAddr.Get ();
 
     //calculate and schedule ping slots for this device
-    std::cout << "Scheduling ping slots for device" << deviceAddr.Get () << std::endl;
+    //Not going to calculate ping slots yet, mac layer has to be modified for them to work first.
+
+    /*std::cout << "Scheduling ping slots for device" << deviceAddr.Get () << std::endl;
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
       uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
       auto gw = d->second.m_lastGWs.cbegin(); 
       (*gw)->RequestPingSlot(O + period*i, dAddr);
       Time ping = MilliSeconds(pingTime); 
       Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
-    }
+    }*/
 
     /*printf("%d ", period);
     printf("%d ", O);*/
@@ -1067,12 +1070,12 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
     NS_FATAL_ERROR (this << " Either RW1 or RW2 should be true");
     return;
   }*/
-
+  uint8_t preambleLength = 8; //TODO: move to better place
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
   phyParamsTag.SetCodeRate (it->second.m_ClassBCodeRateIndex); //TODO: ensure the defaults of these are set properly 
-  phyParamsTag.SetPreambleLength (8); //TODO: magic number
+  phyParamsTag.SetPreambleLength (preambleLength); //TODO: magic number
   p->AddPacketTag (phyParamsTag);
 
   // Set Msg type
