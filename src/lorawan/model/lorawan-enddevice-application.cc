@@ -118,7 +118,9 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntDown (0),
     m_setAck (false),
     m_totalRx (0),
+    m_isClassB (true),
     m_ClassBPingSlots (2) //CLASS B change
+
 {
   NS_LOG_FUNCTION (this);
 
@@ -216,11 +218,17 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   //Part of Class B implementation (added by Joe)
   if(m_isClassB)
   {
+      std::cout << "Scheduling ClassBReceiveBeacon!" << std::endl;
+      std::cout << "addr is:" << GetNode ()->GetDevice (0)->GetAddress () <<  std::endl;
       //schedule event to wake up at exact time of next expected beacon
       //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
       Time t = Seconds (128);
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled to be received at " << t);  
+  }
+  else {
+    std::cout << "Not Scheduling ClassBReceiveBeacon!" << std::endl;
+    std::cout << "addr is:" << GetNode ()->GetDevice (0)->GetAddress () <<  std::endl;
   }
 
   //////////////////////////////////////////////
@@ -362,6 +370,7 @@ void LoRaWANEndDeviceApplication::SendPacket ()
 
 void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
 {
+  std::cout << "In handle read " << std::endl;
   NS_LOG_FUNCTION (this << socket);
   Ptr<Packet> packet;
   Address from;
@@ -377,7 +386,12 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
         }
       m_totalRx += packet->GetSize ();
 
-      if (PacketSocketAddress::IsMatchingType (from)) //TODO: note this sectence from the doc for this method: This method checks that the types are exactly equal. This method is really used only by the PacketSocketAddress and there is little point in using it otherwise so, you have been warned: DO NOT USE THIS METHOD
+      ///////////////////////
+      if (from == broadcast) {
+        NS_LOG_INFO ("Received a beacon?");
+      }
+      ///////////////////////
+      else if (PacketSocketAddress::IsMatchingType (from)) //TODO: note this sectence from the doc for this method: This method checks that the types are exactly equal. This method is really used only by the PacketSocketAddress and there is little point in using it otherwise so, you have been warned: DO NOT USE THIS METHOD
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
                        << "s end device on node #"
@@ -388,11 +402,6 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
 
           this->HandleDSPacket (packet, from);
         }
-      ///////////////////////
-      else if (from == broadcast) {
-        NS_LOG_INFO ("Received a beacon?");
-      }
-      ///////////////////////  
       else
         {
           NS_LOG_WARN (this << " Unexpected address type"); //TODO: this 
@@ -404,7 +413,9 @@ void
 LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
 {
   NS_LOG_FUNCTION(this << p);
+  std::cout << "In HandleDSPacket" << std::endl;
 
+  //TODO: this is where scheduling of ping slots should be fired off.
   // set m_setAck to true in case a CONFIRMED_DATA_DOWN message was received:
   // Try to parse Packet tag:
   LoRaWANMsgTypeTag msgTypeTag;
@@ -423,7 +434,7 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   Ptr<LoRaWANMac> mac = netDevice->GetMac ();
   LoRaWANMacState state = mac->GetLoRaWANMacState ();
-  NS_ASSERT (state == MAC_RW1 || state == MAC_RW2);
+  NS_ASSERT (state == MAC_RW1 || state == MAC_RW2 || state == MAC_BEACON);
 
   // Log packet reception
   Ipv4Address myAddress = Ipv4Address::ConvertFrom (GetNode ()->GetDevice (0)->GetAddress ());
@@ -472,7 +483,8 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   //netDevice->GetMac()->ReceiveBeacon();
 
    // something like setLoRaWANMACState(BEACON);
-
+  Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
+  netDevice->StartReceivingBeacon();
   //schedule next beacon receive.
   Time t = Seconds (128);
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);

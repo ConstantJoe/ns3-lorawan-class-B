@@ -121,8 +121,8 @@ int main (int argc, char *argv[])
   packetSocket.Install (gatewayNodes);
 
   // Not sure what this does
-  PacketSocketAddress socket;
-  socket.SetSingleDevice (lorawanEDDevices.Get (0)->GetIfIndex ()); // Set the address to match only a specified NetDevice...
+ // PacketSocketAddress socket;
+ // socket.SetSingleDevice (lorawanEDDevices.Get (0)->GetIfIndex ()); // Set the address to match only a specified NetDevice...
   // socket.SetPhysicalAddress (lorawanGWDevices.Get (0)->GetAddress ()); // Set destination address
   //socket.SetProtocol (1); // Set the protocol
 
@@ -147,11 +147,11 @@ int main (int argc, char *argv[])
   /*apps.Start (Seconds (0.0));
   apps.Stop (Seconds (100));*/
 
-  //gatewayApps.Start (Seconds (0.0));
-  //gatewayApps.Stop (Seconds (100));
+  gatewayApps.Start (Seconds (0.0));
+  gatewayApps.Stop (Seconds (1000));
   
   enddeviceApps.Start (Seconds (0.0));
-  enddeviceApps.Stop (Seconds (100));
+  enddeviceApps.Stop (Seconds (1000));
 
 
 

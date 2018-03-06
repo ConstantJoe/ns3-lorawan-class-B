@@ -702,6 +702,7 @@ LoRaWANNetDevice::SetReceiveCallback (ReceiveCallback cb)
 void
 LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet> pkt)
 {
+  std::cout << "In data indication (cb)" << std::endl;
   NS_LOG_FUNCTION (this);
 
   // Add LoRaWANPhyParamsTag to packet
@@ -719,6 +720,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
 
   Address senderAddress(params.m_endDeviceAddress); //TODO: ensure NULL is accepted as a broadcast
 
+  std::cout << "call receive callback" << std::endl;
   m_receiveCallback (this, pkt, 0, senderAddress);
 }
 
@@ -763,6 +765,7 @@ void
 LoRaWANNetDevice::StartReceivingBeacon (void)
 {
   //should only attempt if 
+  std::cout << "Net: StartReceivingBeacon!" << std::endl;
   m_mac->SetLoRaWANMacState(MAC_BEACON);
 }
 /////////////////////////////////////////
