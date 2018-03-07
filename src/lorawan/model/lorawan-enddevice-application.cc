@@ -118,8 +118,8 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntDown (0),
     m_setAck (false),
     m_totalRx (0),
-    m_isClassB (true),
-    m_ClassBPingSlots (2) //CLASS B change
+    m_isClassB (true)
+    //m_ClassBPingSlots (2) //CLASS B change TODO: use periodicity instead
 
 {
   NS_LOG_FUNCTION (this);
@@ -326,7 +326,7 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (channelIndex);
   phyParamsTag.SetDataRateIndex (m_dataRateIndex);
-  phyParamsTag.SetCodeRate (3);
+  phyParamsTag.SetCodeRate (3); //TODO: why is this three???
 
   phyParamsTag.SetPreambleLength (preambleLength);
 

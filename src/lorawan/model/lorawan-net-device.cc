@@ -608,6 +608,10 @@ LoRaWANNetDevice::MacBeginsTx (Ptr<LoRaWANMac> macPtr)
 {
   NS_ASSERT (m_deviceType == LORAWAN_DT_GATEWAY);
 
+  std::cout << "In Mac Begins Tx" << std::endl;
+  printf("number of macs is %lu\r\n", m_macs.size());
+  //std::cout << "# of m_macs is " << m_macs.size() << std::endl;
+
   // Switch all MACs (including macPtr) to MAC_UNAVAILABLE state
   for (uint8_t i = 0; i < m_macs.size (); i++) {
     Ptr<LoRaWANMac> mac = m_macs[i];
@@ -619,6 +623,8 @@ LoRaWANNetDevice::MacBeginsTx (Ptr<LoRaWANMac> macPtr)
 
     mac->SwitchToUnavailableState();
   }
+
+  std::cout << "End of Mac Begins Tx" << std::endl;
 }
 
 void

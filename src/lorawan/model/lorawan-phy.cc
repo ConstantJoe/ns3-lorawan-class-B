@@ -289,12 +289,14 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   const LoRaWANDataRate* dataRate = &LoRaWAN::m_supportedDataRates[dataRateIndex];
   if (channel == NULL || dataRate == NULL) {
     NS_LOG_ERROR(this << " Cannot set TX config due to invalid channel or data rate index");
+    std::cout << this << " Cannot set TX config due to invalid channel or data rate index" << std::endl;
     return false;
   }
 
   // Can only update TxConf when radio is not already transmitting
   if (m_trxState == LORAWAN_PHY_BUSY_TX || m_trxState == LORAWAN_PHY_TX_ON || m_setTRXState.IsRunning() ) {
     NS_LOG_ERROR(this << " Cannot set TX config while radio is in state " << m_trxState << ", or while the state is scheduled to be changed");
+    std::cout << this << " Cannot set TX config while radio is in state " << m_trxState << ", or while the state is scheduled to be changed" << std::endl;
     return false;
   }
 
@@ -317,6 +319,10 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
 
   if (!validConf) {
     NS_LOG_ERROR(this << "Invalid TX config supplied, aborting.");
+    std::cout << this << "Invalid TX config supplied, aborting." << std::endl;
+    printf("%u\r\n", codeRate);
+    printf("%u\r\n", channel->m_bw);
+    printf("%u\r\n", power);
     return false;
   }
 
@@ -348,6 +354,7 @@ LoRaWANPhy::SetTRXStateRequest (LoRaWANPhyEnumeration state)
   NS_LOG_FUNCTION (this << state);
 
   NS_LOG_LOGIC ("Trying to set m_trxState from " << m_trxState << " to " << state);
+  //std::cout << "Trying to set m_trxState from " << m_trxState << " to " << state << std::endl;
 
   // Check valid states
   NS_ABORT_IF ( (state != LORAWAN_PHY_RX_ON)
@@ -776,6 +783,8 @@ LoRaWANPhy::PdDataRequest (const uint32_t phyPayloadLength, Ptr<Packet> p)
   //    NS_LOG_DEBUG ("Drop packet because Phy Payload is too long: " << phyPayloadLength);
   //    return;
   //}
+
+  std::cout << "in PdDataRequest" << std::endl;
 
   NS_LOG_DEBUG(this << " m_trxState = " << m_trxState);
   if (m_trxState == LORAWAN_PHY_TX_ON)

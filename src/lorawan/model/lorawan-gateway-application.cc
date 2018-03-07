@@ -737,13 +737,17 @@ LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
     LoRaWANNSDSQueueElement* element = new LoRaWANNSDSQueueElement ();
     element->m_downstreamPacket = packet;
     element->m_downstreamFramePort = 1;
-    if (m_confirmedData) {
+    /*if (m_confirmedData) {
       element->m_downstreamMsgType = LORAWAN_CONFIRMED_DATA_DOWN;
       element->m_downstreamTransmissionsRemaining = DEFAULT_NUMBER_DS_TRANSMISSIONS;
     } else {
       element->m_downstreamMsgType = LORAWAN_UNCONFIRMED_DATA_DOWN;
       element->m_downstreamTransmissionsRemaining = 1;
-    }
+    }*/
+
+    element->m_downstreamMsgType = LORAWAN_CLASS_B_DOWN;
+    element->m_downstreamTransmissionsRemaining = 1;
+
     element->m_isRetransmission = false;
     it->second.m_ClassBdownstreamQueue.push_back (element);
     it->second.m_nClassBPacketsGenerated += 1;
@@ -940,14 +944,14 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     //calculate and schedule ping slots for this device
     //Not going to calculate ping slots yet, mac layer has to be modified for them to work first.
 
-    /*std::cout << "Scheduling ping slots for device" << deviceAddr.Get () << std::endl;
+    std::cout << "Scheduling ping slots for device" << deviceAddr.Get () << std::endl;
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
       uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
       auto gw = d->second.m_lastGWs.cbegin(); 
       (*gw)->RequestPingSlot(O + period*i, dAddr);
       Time ping = MilliSeconds(pingTime); 
       Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
-    }*/
+    }
 
     /*printf("%d ", period);
     printf("%d ", O);*/
@@ -979,8 +983,6 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
 
   if((*gw)->IsTopOfPingSlotQueue(pingTime, devAddr))
   {  
-      //TODO: check data queue, if a packet is waiting to be sent send via last seen gateway
-      // v. similar to SendDSPacket, can it be modified and used directly?  
 
   // Figure out which DS packet to send
     LoRaWANNSDSQueueElement elementToSend;
@@ -1059,7 +1061,8 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
   // Add Phy Packet tag to specify channel, data rate and code rate:
   uint8_t dsChannelIndex = it->second.m_ClassBChannelIndex; //TODO: ensure the defaults of these are set properly 
   uint8_t dsDataRateIndex = it->second.m_ClassBDataRateIndex; //TODO: ensure the defaults of these are set properly 
-  
+  uint8_t dsCodeRate = it->second.m_ClassBCodeRateIndex;
+
   /*if (RW1) {
     dsChannelIndex = it->second.m_lastChannelIndex;
     dsDataRateIndex = LoRaWAN::GetRX1DataRateIndex (it->second.m_lastDataRateIndex, it->second.m_rx1DROffset);
@@ -1074,7 +1077,7 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
-  phyParamsTag.SetCodeRate (it->second.m_ClassBCodeRateIndex); //TODO: ensure the defaults of these are set properly 
+  phyParamsTag.SetCodeRate (dsCodeRate); //TODO: ensure the defaults of these are set properly  //this is wrong
   phyParamsTag.SetPreambleLength (preambleLength); //TODO: magic number
   p->AddPacketTag (phyParamsTag);
 
@@ -1504,7 +1507,7 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
   uint8_t beaconChannelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
   // Note: this also appears to be the only channel outside of the main subband? 
   uint8_t beaconDataRateIndex = 3;  // SF9, 125kHz BW. Mandetory for Class B beacons.
-  uint8_t beaconCodeRate = 3; //TODO: double check this.
+  uint8_t beaconCodeRate = 1; 
   uint8_t beaconPreambleLength = 10;
 
   LoRaWANPhyParamsTag phyParamsTag;
