@@ -128,10 +128,8 @@ namespace ns3 {
   LoRaWANNetworkServer::DoInitialize (void)
   {
     NS_LOG_FUNCTION (this);
-    std::cout << "testing! ns " << std::endl;
   //begin broadcasting of beacons
     if(m_generateClassBDataDown){
-      std::cout << "schedule beacons (ns) " << std::endl;
       Time t;
       if(m_scheduleFromUnixTime){
         uint64_t t_gps = getGPSTime();
@@ -143,7 +141,6 @@ namespace ns3 {
       }
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBSendBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);  
-      std::cout << " Class B beacon " << "scheduled at " << t << std::endl;
     }  
 
     Object::DoInitialize ();
@@ -207,7 +204,7 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
   ipv4DevAddr.Print (addrOss);
   std::string addrStr = addrOss.str();
 
-  std::cout << "address of node is: " << addrStr << std::endl; 
+  NS_LOG_DEBUG("address of node is: " << addrStr);
 
   if (m_generateDataDown) {
     Time t = Seconds (this->m_downstreamIATRandomVariable->GetValue ());
@@ -786,7 +783,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
     
   */
-  std::cout << "In Class B beacon!" << std::endl;
+  NS_LOG_FUNCTION (this);
 
   //clear old Class B ping slot queues
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
@@ -808,10 +805,8 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
      }
 
 
-
-     std::cout << "Current time is " << timestamp << std::endl;
-     std::cout << "Next beacon will be sent at " << nextBeacon << std::endl;
-
+     NS_LOG_DEBUG("Current time is " << timestamp);
+     NS_LOG_DEBUG("Next beacon will be sent at " << nextBeacon + timestamp);
 
   // build a beacon frame
   // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be modified in the gateway, as some parameters are gateway dependent
@@ -942,9 +937,11 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     uint32_t dAddr = (uint32_t) deviceAddr.Get ();
 
     //calculate and schedule ping slots for this device
-    //Not going to calculate ping slots yet, mac layer has to be modified for them to work first.
 
-    std::cout << "Scheduling ping slots for device" << deviceAddr.Get () << std::endl;
+    //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
+    //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
+
+    NS_LOG_DEBUG("Scheduling ping slots for device" << deviceAddr.Get ());
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
       uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
       auto gw = d->second.m_lastGWs.cbegin(); 
@@ -953,19 +950,12 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
       Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
     }
 
-    /*printf("%d ", period);
-    printf("%d ", O);*/
 
-    //std::cout << "Offset: " << O << std::endl;
-
-    //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
-    //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
 
   }
 
   //schedule next beacon
   m_beaconTimer = Simulator::Schedule (nextBeacon, &LoRaWANNetworkServer::ClassBSendBeacon, this);
-  std::cout << "Class B beacon scheduled!" << std::endl;
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
 
@@ -1102,7 +1092,7 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
   //it->second.m_lastDSGW = gatewayPtr;
 
   // Ask gateway application to send the DS packet:
-  std::cout << "Sending a downlink ping, from " << (*gw)->GetNode ()->GetDevice (0)->GetAddress () << " to " << Ipv4Address (devAddr) << "at time " << Simulator::Now() << std::endl;
+  NS_LOG_DEBUG("Sending a downlink ping, from " << (*gw)->GetNode ()->GetDevice (0)->GetAddress () << " to " << Ipv4Address (devAddr) << "at time " << Simulator::Now() );
   (*gw)->SendDSPacket (p);
   //NS_LOG_DEBUG (this << " Sent DS Packet to device addr " << devAddr << " via GW #" << gw->GetNode()->GetId() << " in Class B Downlink");
   //TODO: proper log here.
@@ -1254,7 +1244,6 @@ void
 LoRaWANGatewayApplication::DoInitialize (void)
 {
   NS_LOG_FUNCTION (this);
-  std::cout << "testing! gw initialize" << std::endl;
   this->m_lorawanNSPtr = LoRaWANNetworkServer::getLoRaWANNetworkServerPointer ();
 
   // chain up
@@ -1364,7 +1353,7 @@ void LoRaWANGatewayApplication::StartApplication () // Called at time specified 
 
 
     }
-     std::cout << "GW address is:! " << GetNode ()->GetDevice (0)->GetAddress () << std::endl;
+    NS_LOG_DEBUG("GW address is:! " << GetNode ()->GetDevice (0)->GetAddress ());
   // instruct Network Server to populate end devices data structure:
   // NOTE that we call PopulateEndDevices in StartApplication and not in DoInitialize as the attributes for the NetworkServer object have not yet been set at the of DoInitialize()
     this->m_lorawanNSPtr->PopulateEndDevices ();
@@ -1386,8 +1375,7 @@ void LoRaWANGatewayApplication::StopApplication () // Called at time specified b
 
 void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
 {
-  std::cout << "reading! " << GetNode ()->GetDevice (0)->GetAddress () << std::endl;
-  NS_LOG_FUNCTION (this << socket);
+  NS_LOG_FUNCTION (this << socket << " " << GetNode ()->GetDevice (0)->GetAddress () );
   Ptr<Packet> packet;
   Address from;
   while ((packet = socket->RecvFrom (from)))
@@ -1533,7 +1521,7 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
 
 
   // then pass this beacon to the Net Device
-  std::cout << "sending the beacon!" << std::endl;
+  NS_LOG_DEBUG("sending the beacon.");
   this->SendDSPacket (p);
 }
 

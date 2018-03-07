@@ -552,7 +552,6 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   //////////////////////////////////
 
   loRaWANDataRequestParams.m_loraWANPreambleLength = preambleLength;
-  printf("send preambleLength %u\r\n", preambleLength);
   //////////////////////////////////
   
   loRaWANDataRequestParams.m_requestHandle = 0; // TODO
@@ -608,9 +607,7 @@ LoRaWANNetDevice::MacBeginsTx (Ptr<LoRaWANMac> macPtr)
 {
   NS_ASSERT (m_deviceType == LORAWAN_DT_GATEWAY);
 
-  std::cout << "In Mac Begins Tx" << std::endl;
-  printf("number of macs is %lu\r\n", m_macs.size());
-  //std::cout << "# of m_macs is " << m_macs.size() << std::endl;
+  NS_LOG_FUNCTION(this);
 
   // Switch all MACs (including macPtr) to MAC_UNAVAILABLE state
   for (uint8_t i = 0; i < m_macs.size (); i++) {
@@ -623,8 +620,6 @@ LoRaWANNetDevice::MacBeginsTx (Ptr<LoRaWANMac> macPtr)
 
     mac->SwitchToUnavailableState();
   }
-
-  std::cout << "End of Mac Begins Tx" << std::endl;
 }
 
 void
@@ -710,7 +705,6 @@ LoRaWANNetDevice::SetReceiveCallback (ReceiveCallback cb)
 void
 LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet> pkt)
 {
-  std::cout << "In data indication (cb)" << std::endl;
   NS_LOG_FUNCTION (this);
 
   // Add LoRaWANPhyParamsTag to packet
@@ -728,7 +722,6 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
 
   Address senderAddress(params.m_endDeviceAddress); //TODO: ensure NULL is accepted as a broadcast
 
-  std::cout << "call receive callback" << std::endl;
   m_receiveCallback (this, pkt, 0, senderAddress);
 }
 
@@ -772,8 +765,7 @@ LoRaWANNetDevice::AssignStreams (int64_t stream)
 void
 LoRaWANNetDevice::StartReceivingBeacon (void)
 {
-  //should only attempt if 
-  std::cout << "Net: StartReceivingBeacon!" << std::endl;
+  NS_LOG_FUNCTION(this);
   m_mac->SetLoRaWANMacState(MAC_BEACON);
 }
 /////////////////////////////////////////

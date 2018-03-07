@@ -45,6 +45,9 @@
 
 using namespace ns3;
 
+
+NS_LOG_COMPONENT_DEFINE ("LORAWAN_EXAMPLE");
+
 void
 ReceivePacket (Ptr<Socket> socket)
 {
@@ -55,7 +58,7 @@ ReceivePacket (Ptr<Socket> socket)
       bytes += packet->GetSize ();
     }
 
-  std::cout << "SOCKET received " << bytes << " bytes" << std::endl;
+  NS_LOG_LOGIC("SOCKET received " << bytes << " bytes");
 }
 
 Ptr<Socket>
@@ -70,7 +73,7 @@ SetupPacketReceive (Ptr<Node> node)
 
 int main (int argc, char *argv[])
 {
-  std::cout << "Test!" << std::endl;
+  NS_LOG_LOGIC("Start of Example Simulation!");
   NodeContainer endDeviceNodes;
   NodeContainer gatewayNodes;
   NodeContainer allNodes;

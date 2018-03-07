@@ -61,7 +61,7 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
   const uint32_t channelRandomVariableDefaultMin = 0;
   const uint32_t channelRandomVariableDefaultMax = (LoRaWAN::m_supportedChannels.size () - 1) - 1; // additional -1 as not to use the 10% RDC channel as an upstream channel
   channelRandomVariableSS << "ns3::UniformRandomVariable[Min=" << channelRandomVariableDefaultMin << "|Max=" << channelRandomVariableDefaultMax << "]";
-  std::cout << "LoRaWANEndDeviceApplication::GetTypeId: " << channelRandomVariableSS.str() << std::endl;
+  NS_LOG_LOGIC("LoRaWANEndDeviceApplication::GetTypeId: " << channelRandomVariableSS.str());
 
   static TypeId tid = TypeId ("ns3::LoRaWANEndDeviceApplication")
     .SetParent<Application> ()
@@ -218,8 +218,7 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   //Part of Class B implementation (added by Joe)
   if(m_isClassB)
   {
-      std::cout << "Scheduling ClassBReceiveBeacon!" << std::endl;
-      std::cout << "addr is:" << GetNode ()->GetDevice (0)->GetAddress () <<  std::endl;
+      NS_LOG_LOGIC("Scheduling ClassBReceiveBeacon! addr is " << GetNode ()->GetDevice (0)->GetAddress ());
       //schedule event to wake up at exact time of next expected beacon
       //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
       Time t = Seconds (128);
@@ -227,8 +226,7 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled to be received at " << t);  
   }
   else {
-    std::cout << "Not Scheduling ClassBReceiveBeacon!" << std::endl;
-    std::cout << "addr is:" << GetNode ()->GetDevice (0)->GetAddress () <<  std::endl;
+    NS_LOG_LOGIC("Not Scheduling ClassBReceiveBeacon! addr is " << GetNode ()->GetDevice (0)->GetAddress ());
   }
 
   //////////////////////////////////////////////
@@ -283,8 +281,6 @@ void LoRaWANEndDeviceApplication::ScheduleNextTx ()
 void LoRaWANEndDeviceApplication::SendPacket ()
 {
   NS_LOG_FUNCTION (this);
-
-  std::cout << "Sending Class A packet from end device!" << std::endl;
   NS_ASSERT (m_txEvent.IsExpired ());
 
   Ipv4Address myAddress = Ipv4Address::ConvertFrom (GetNode ()->GetDevice (0)->GetAddress ());
@@ -330,7 +326,6 @@ void LoRaWANEndDeviceApplication::SendPacket ()
 
   phyParamsTag.SetPreambleLength (preambleLength);
 
-  printf("prema: %u\r\n", phyParamsTag.GetPreambleLength ());
   packet->AddPacketTag (phyParamsTag);
 
   // Set Msg type
@@ -369,12 +364,11 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   m_lastTxTime = Simulator::Now ();
   ScheduleNextTx ();
 
-  std::cout << "Finished sending!" << std::endl;
+  NS_LOG_DEBUG("Finished sending!");
 }
 
 void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
 {
-  std::cout << "In handle read " << std::endl;
   NS_LOG_FUNCTION (this << socket);
   Ptr<Packet> packet;
   Address from;
@@ -417,7 +411,6 @@ void
 LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
 {
   NS_LOG_FUNCTION(this << p);
-  std::cout << "In HandleDSPacket" << std::endl;
 
   //TODO: this is where scheduling of ping slots should be fired off.
   // set m_setAck to true in case a CONFIRMED_DATA_DOWN message was received:
@@ -492,7 +485,6 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   //schedule next beacon receive.
   Time t = Seconds (128);
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
-  std::cout << "Class B beacon scheduled!" << std::endl;
   NS_LOG_DEBUG (this << " Class B beacon " << "scheduled at " << t);
 }
 
