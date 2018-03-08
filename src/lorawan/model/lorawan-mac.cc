@@ -102,11 +102,11 @@ LoRaWANMac::GetTypeId (void)
                      "but dropped before being forwarded up the stack",
                      MakeTraceSourceAccessor (&LoRaWANMac::m_macRxDropTrace),
                      "ns3::Packet::TracedCallback")
-    //.AddTraceSource ("Sniffer",
-    //                 "Trace source simulating a non-promiscuous "
-    //                 "packet sniffer attached to the device",
-    //                 MakeTraceSourceAccessor (&LoRaWANMac::m_snifferTrace),
-    //                 "ns3::Packet::TracedCallback")
+    .AddTraceSource ("Sniffer",
+                     "Trace source simulating a non-promiscuous "
+                     "packet sniffer attached to the device",
+                     MakeTraceSourceAccessor (&LoRaWANMac::m_snifferTrace),
+                     "ns3::Packet::TracedCallback")
     //.AddTraceSource ("PromiscSniffer",
     //                 "Trace source simulating a promiscuous "
     //                 "packet sniffer attached to the device",
@@ -616,6 +616,8 @@ LoRaWANMac::SetTRXStateConfirm (LoRaWANPhyEnumeration status)
       //m_promiscSnifferTrace (m_txPkt);
       //m_snifferTrace (m_txPkt);
       m_macTxTrace (m_txPkt);
+
+      m_snifferTrace (m_txPkt);
 
       Ptr<Packet> p = m_txPkt;
 

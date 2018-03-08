@@ -25,6 +25,7 @@
 #include <ns3/lorawan-phy.h>
 #include <ns3/node-container.h>
 #include <ns3/net-device-container.h>
+#include <ns3/trace-helper.h>
 #include <ns3/log.h>
 
 namespace ns3 {
@@ -36,7 +37,7 @@ namespace ns3 {
  * LoRaWANNetDevice objects and to configure a large set of
  * their attributes during creation.
  */
-class LoRaWANHelper {
+class LoRaWANHelper : public PcapHelperForDevice {
 public:
   /**
    * \brief Create a LoRaWAN helper in an empty state.  By default, a
@@ -127,6 +128,8 @@ private:
    * \returns
    */
   LoRaWANHelper& operator= (LoRaWANHelper const &);
+
+   virtual void EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename);
 
 private:
   Ptr<SpectrumChannel> m_channel; //!< channel to be used for the devices

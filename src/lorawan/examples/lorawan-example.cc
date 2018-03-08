@@ -41,6 +41,9 @@
 #include <ns3/node.h>
 #include <ns3/packet.h>
 
+#include "ns3/traced-value.h"
+#include "ns3/trace-source-accessor.h"
+
 #include <iostream>
 
 using namespace ns3;
@@ -96,6 +99,8 @@ int main (int argc, char *argv[])
 
   LoRaWANHelper lorawanHelper;
 
+  
+
   //lorawanHelper.EnableLogComponents(LOG_LEVEL_ALL);
 
   lorawanHelper.SetNbRep(1);
@@ -104,6 +109,8 @@ int main (int argc, char *argv[])
   lorawanHelper.SetDeviceType (LORAWAN_DT_GATEWAY);
   NetDeviceContainer lorawanGWDevices = lorawanHelper.Install (gatewayNodes);
 
+  lorawanHelper.EnablePcapAll ("myfirst", false);
+  
   // Trace state changes in the phy
   //dev0->GetPhy ()->TraceConnect ("TrxState", std::string ("phy0"), MakeCallback (&StateChangeNotification));
   //dev1->GetPhy ()->TraceConnect ("TrxState", std::string ("phy1"), MakeCallback (&StateChangeNotification));

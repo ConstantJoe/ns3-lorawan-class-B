@@ -165,4 +165,93 @@ LoRaWANHelper::AssignStreams (NetDeviceContainer c, int64_t stream)
     }
   return (currentStream - stream);
 }
+
+/**
+ * @brief Write a packet in a PCAP file
+ * @param file the output file
+ * @param packet the packet
+ */
+static void
+PcapSniffLoRaWAN (Ptr<PcapFileWrapper> file, Ptr<const Packet> packet)
+{
+  file->Write (Simulator::Now (), packet);
+}
+
+//based on LrWANHelper's function of the same name.
+void
+LoRaWANHelper::EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename)
+{
+  std::cout << "in enable pcap internal" << std::endl; //TODO: this isn't getting called.
+  NS_LOG_FUNCTION (this << prefix << nd << promiscuous << explicitFilename);
+  //
+  // All of the Pcap enable functions vector through here including the ones
+  // that are wandering through all of devices on perhaps all of the nodes in
+  // the system.
+  //
+
+  // In the future, if we create different NetDevice types, we will
+  // have to switch on each type below and insert into the right
+  // NetDevice type
+  //
+  Ptr<LoRaWANNetDevice> device = nd->GetObject<LoRaWANNetDevice> ();
+  if (device == 0)
+    {
+      NS_LOG_INFO ("LoRaWANNetDevice::EnablePcapInternal(): Device " << device << " not of type ns3::LoRaWANNetDevice");
+      return;
+    }
+
+  PcapHelper pcapHelper;
+
+  std::string filename;
+  if (explicitFilename)
+    {
+      filename = prefix;
+    }
+  else
+    {
+      filename = pcapHelper.GetFilenameFromDevice (prefix, device);
+    }
+
+  Ptr<PcapFileWrapper> file = pcapHelper.CreateFile (filename, std::ios::out,
+                                                     PcapHelper::DLT_LORATAP); //270 is DLT_LORATAP, see here: http://www.tcpdump.org/linktypes.html
+
+  if (promiscuous == true)
+    {
+
+      //device->GetMac ()->TraceConnectWithoutContext ("PromiscSniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
+      if (device->GetDeviceType() == LORAWAN_DT_END_DEVICE_CLASS_A){
+        std::cout << "device is class a" << std::endl;
+        device->GetMac ()->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
+      }
+      else if (device->GetDeviceType() == LORAWAN_DT_GATEWAY) {
+        std::cout << "device is gateway" << std::endl;
+        std::vector<Ptr<LoRaWANMac> > macs = device->GetMacs ();
+        for (auto mac = macs.cbegin(); mac != macs.cend(); mac++) {
+          (*mac)->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
+        }
+      }
+      else {
+        std::cout << "device type err" << std::endl;
+      }
+    }
+  else
+    {
+      if (device->GetDeviceType() == LORAWAN_DT_END_DEVICE_CLASS_A){
+        std::cout << "device is class a" << std::endl;
+        device->GetMac ()->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
+      }
+      else if (device->GetDeviceType() == LORAWAN_DT_GATEWAY) {
+        std::cout << "device is gateway" << std::endl;
+        std::vector<Ptr<LoRaWANMac> > macs = device->GetMacs ();
+        for (auto mac = macs.cbegin(); mac != macs.cend(); mac++) {
+          (*mac)->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
+        }
+      }
+      else {
+        std::cout << "device type err" << std::endl;
+      }
+      
+    }
+}
+
 }

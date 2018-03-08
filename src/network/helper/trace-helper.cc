@@ -400,12 +400,14 @@ AsciiTraceHelper::DefaultReceiveSinkWithContext (Ptr<OutputStreamWrapper> stream
 void 
 PcapHelperForDevice::EnablePcap (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename)
 {
+  std::cout << "In epa net" << std::endl;
   EnablePcapInternal (prefix, nd, promiscuous, explicitFilename);
 }
 
 void 
 PcapHelperForDevice::EnablePcap (std::string prefix, std::string ndName, bool promiscuous, bool explicitFilename)
 {
+  std::cout << "In epa string" << std::endl;
   Ptr<NetDevice> nd = Names::Find<NetDevice> (ndName);
   EnablePcap (prefix, nd, promiscuous, explicitFilename);
 }
@@ -413,6 +415,7 @@ PcapHelperForDevice::EnablePcap (std::string prefix, std::string ndName, bool pr
 void 
 PcapHelperForDevice::EnablePcap (std::string prefix, NetDeviceContainer d, bool promiscuous)
 {
+  std::cout << "In epa netc" << std::endl;
   for (NetDeviceContainer::Iterator i = d.Begin (); i != d.End (); ++i)
     {
       Ptr<NetDevice> dev = *i;
@@ -423,6 +426,7 @@ PcapHelperForDevice::EnablePcap (std::string prefix, NetDeviceContainer d, bool 
 void
 PcapHelperForDevice::EnablePcap (std::string prefix, NodeContainer n, bool promiscuous)
 {
+  std::cout << "In ep node" << std::endl;
   NetDeviceContainer devs;
   for (NodeContainer::Iterator i = n.Begin (); i != n.End (); ++i)
     {
@@ -438,12 +442,14 @@ PcapHelperForDevice::EnablePcap (std::string prefix, NodeContainer n, bool promi
 void
 PcapHelperForDevice::EnablePcapAll (std::string prefix, bool promiscuous)
 {
+  std::cout << "In epa" << std::endl;
   EnablePcap (prefix, NodeContainer::GetGlobal (), promiscuous);
 }
 
 void 
 PcapHelperForDevice::EnablePcap (std::string prefix, uint32_t nodeid, uint32_t deviceid, bool promiscuous)
 {
+  std::cout << "In epa node id device id" << std::endl;
   NodeContainer n = NodeContainer::GetGlobal ();
 
   for (NodeContainer::Iterator i = n.Begin (); i != n.End (); ++i)

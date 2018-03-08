@@ -422,6 +422,9 @@ private:
    */
   TracedCallback<Ptr<const Packet> > m_macRxDropTrace;
 
+
+  TracedCallback<Ptr<const Packet> > m_snifferTrace;
+  
   /**
    * The index of this Mac object in the lorawan net device
    */
