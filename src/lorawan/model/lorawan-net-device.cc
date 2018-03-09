@@ -768,6 +768,21 @@ LoRaWANNetDevice::StartReceivingBeacon (void)
   NS_LOG_FUNCTION(this);
   m_mac->SetLoRaWANMacState(MAC_BEACON);
 }
+
+void
+LoRaWANNetDevice::StartReceivingClassBPacket (uint8_t m_ClassBChannelIndex, uint8_t m_ClassBDataRateIndex, uint8_t m_ClassBCodeRateIndex)
+{
+  NS_LOG_FUNCTION(this);
+
+  m_mac->setClassBChannelIndex(m_ClassBChannelIndex);
+  m_mac->setClassBDataRateIndex(m_ClassBDataRateIndex);
+  m_mac->setClassBCodeRateIndex(m_ClassBCodeRateIndex);
+
+  m_mac->SetLoRaWANMacState(MAC_CLASS_B_PACKET);
+}
+
 /////////////////////////////////////////
+
+
 
 } // namespace ns3

@@ -257,7 +257,7 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
   NS_LOG_FUNCTION (this << macState);
 
   if (macState == MAC_IDLE) {
-      NS_ASSERT (m_LoRaWANMacState == MAC_TX || m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_ACK_TIMEOUT || m_LoRaWANMacState == MAC_UNAVAILABLE || m_LoRaWANMacState == MAC_BEACON);
+      NS_ASSERT (m_LoRaWANMacState == MAC_TX || m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_ACK_TIMEOUT || m_LoRaWANMacState == MAC_UNAVAILABLE || m_LoRaWANMacState == MAC_BEACON || m_LoRaWANMacState == MAC_CLASS_B_PACKET);
 
       ChangeMacState (macState);
 
@@ -356,6 +356,12 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
 
      OpenRW ();    
     ///////////////////////////////////
+  } else if (macState == MAC_CLASS_B_PACKET) {
+     NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive ping packet from idle mode
+     // TODO: assert might be too strong here
+    ChangeMacState (macState);
+
+     OpenRW ();
   }
   else {
     NS_FATAL_ERROR (this << " unknown MAC state " << macState);
@@ -431,7 +437,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
   // TODO: this function is called when a packet is fully received. Modify to include possibility of Class B beacon or frame.
   
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
-    NS_ASSERT (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON); // gateway would be in MAC_IDLE, class A in either RW1 or RW2
+    NS_ASSERT (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON || m_LoRaWANMacState == MAC_CLASS_B_PACKET); // gateway would be in MAC_IDLE, class A in either RW1 or RW2
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     NS_ASSERT (m_LoRaWANMacState == MAC_IDLE);
   }  else {
@@ -659,6 +665,10 @@ LoRaWANMac::SetTRXStateConfirm (LoRaWANPhyEnumeration status)
     {
        NS_ASSERT (status == LORAWAN_PHY_RX_ON);
     }
+  else if (m_LoRaWANMacState == MAC_CLASS_B_PACKET)
+  {
+    NS_ASSERT (status == LORAWAN_PHY_RX_ON);
+  }
   /////////////////////
   else
     {
@@ -1183,13 +1193,28 @@ LoRaWANMac::OpenRW ()
     // Note: this also appears to be the only channel outside of the main subband?
     uint8_t dataRateIndex = 3; // SF9, 125kHz BW. Mandetory for Class B beacons.
 
+    uint8_t codeRate = 1;
+
     uint8_t subBandIndex = LoRaWAN::m_supportedChannels [channelIndex].m_subBandIndex;
     uint8_t maxTxPower = m_lorawanMacRDC->GetMaxPowerForSubBand (subBandIndex);
 
-    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, 3, 10, true, false) ) {
+    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, codeRate, 10, true, false) ) {
       NS_LOG_ERROR (this << " unable to configure Phy");
       return;
     } 
+  }
+  else if (m_LoRaWANMacState == MAC_CLASS_B_PACKET) {
+    uint8_t channelIndex = m_ClassBChannelIndex;
+    uint8_t dataRateIndex = m_ClassBDataRateIndex;
+    uint8_t codeRate = m_ClassBCodeRateIndex;
+
+    uint8_t subBandIndex = LoRaWAN::m_supportedChannels [channelIndex].m_subBandIndex;
+    uint8_t maxTxPower = m_lorawanMacRDC->GetMaxPowerForSubBand (subBandIndex);
+
+    if (!m_phy->SetTxConf (maxTxPower, channelIndex, dataRateIndex, codeRate, 8, false, true) ) {
+      NS_LOG_ERROR (this << " unable to configure Phy");
+      return;
+    }
   }
   /////////////////////////////////////////////////////////
   else {
@@ -1255,6 +1280,10 @@ LoRaWANMac::CloseRW ()
     NS_LOG_WARN (this << " Missed beacon. Going directly to MAC_IDLE state.");
     m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
   }
+  else if (m_LoRaWANMacState == MAC_CLASS_B_PACKET) {
+    NS_LOG_WARN (this << " No packet received in this ping slot. Going directly to MAC_IDLE state.");
+    m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE); 
+  }
   else {
     NS_LOG_ERROR (this << " MAC state incorrect " << m_LoRaWANMacState);
     return;
@@ -1280,7 +1309,7 @@ LoRaWANMac::CheckPhyPreamble ()
     // 2) The frame was destroyed during reception (e.g. due to interference) and phy calls data destroyed callback (allowing MAC to handle this)
   } else {
     // No ongoing transmission, in case we are in RW1 or RW2 state. Close RW
-    if (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON) {
+    if (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON || m_LoRaWANMacState == MAC_CLASS_B_PACKET) {
       CloseRW ();
     }
   }
@@ -1432,7 +1461,20 @@ LoRaWANMac::AssignStreams (int64_t stream)
   return 1;
 }
 
+void 
+LoRaWANMac::setClassBChannelIndex(uint8_t channelIndex) {
+  m_ClassBChannelIndex = channelIndex;
+}
 
+void 
+LoRaWANMac::setClassBDataRateIndex(uint8_t dataRateIndex) {
+  m_ClassBDataRateIndex = dataRateIndex;
+}
+
+void 
+LoRaWANMac::setClassBCodeRateIndex(uint8_t codeRateIndex) {
+  m_ClassBCodeRateIndex = codeRateIndex;
+}
 
 //////////////////////////////////////////////
 //send Class B beacon.  Based on...

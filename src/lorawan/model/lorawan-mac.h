@@ -56,7 +56,8 @@ typedef enum
   //MAC_RX,              //!< MAC_RX
   MAC_ACK_TIMEOUT, 	 //!< MAC_ACK_TIMEOUT, MAC state during which the MAC is waiting for the ACK_TIMEOUT (no TX is allowed during this state)
   MAC_UNAVAILABLE, 	         //!< MAC_UNAVAILABLE, MAC is currently unavailable to perform any operation (e.g. other MAC on same device is currently sending)
-  MAC_BEACON // rx mode for receiving beacon
+  MAC_BEACON, // rx mode for receiving beacon
+  MAC_CLASS_B_PACKET
 } LoRaWANMacState;
 
 namespace TracedValueCallback {
@@ -328,6 +329,9 @@ public:
    */
   int64_t AssignStreams (int64_t stream);
 
+  void setClassBChannelIndex(uint8_t  channelIndex);
+  void setClassBDataRateIndex(uint8_t dataRateIndex);
+  void setClassBCodeRateIndex(uint8_t codeRateIndex);
 protected:
   // Inherited from Object.
   virtual void DoInitialize (void);
@@ -352,7 +356,15 @@ protected:
 
   //void StartTransmission();
   //void EndTransmission();
+
+  
 private:
+
+  ///////////////////////////////////
+  uint8_t m_ClassBChannelIndex;
+  uint8_t m_ClassBDataRateIndex;
+  uint8_t m_ClassBCodeRateIndex;
+  ///////////////////////////////////
 
   /**
    * The trace source fired when packets are considered as successfully sent

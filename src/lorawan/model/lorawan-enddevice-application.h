@@ -33,6 +33,8 @@
 #include "ns3/data-rate.h"
 #include "ns3/traced-callback.h"
 
+#include "aes.h"
+
 namespace ns3 {
 
 class Address;
@@ -112,10 +114,6 @@ private:
 
   void HandleDSPacket (Ptr<Packet> p, Address from);
 
-  //////////////////////////////////////
-  void ClassBSchedulePingSlots ();
-  //////////////////////////////////////
-
   Ptr<Socket>     m_socket;       //!< Associated socket
   bool            m_connected;    //!< True if connected
   Ptr<RandomVariableStream> m_channelRandomVariable;	//!< rng for channel selection for upstream TX
@@ -138,11 +136,17 @@ private:
   /////////////////////////////////////////////////////////////////////////////////////
   //Part of Class B implementation (added by Joe)
 
+  void ClassBSchedulePingSlots (Time timestamp);
   void ClassBReceiveBeacon ();
+  void ClassBPingSlot ();
 
   bool m_isClassB;                //!< specifies Class B, (wakes up for beacons and ping slots, sets bit in uplink packets)
   EventId     m_beaconTimer;      //Beacon event
   uint8_t     m_ClassBPingSlots;
+  uint8_t     m_ClassBPingPeriodicity;
+  uint8_t     m_ClassBChannelIndex;
+  uint8_t     m_ClassBDataRateIndex;  
+  uint8_t     m_ClassBCodeRateIndex;
 
   /////////////////////////////////////////////////////////////////////////////////////
 

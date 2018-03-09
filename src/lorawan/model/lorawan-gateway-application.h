@@ -38,6 +38,8 @@
 #include <unordered_map>
 #include <deque>
 
+#include "aes.h"
+
 namespace ns3 {
 
 namespace TracedValueCallback {

@@ -41,7 +41,7 @@
 #include "ns3/string.h"
 #include "ns3/pointer.h"
 
-#include "aes.h"
+//#include "aes.h"
 
 namespace ns3 {
 
@@ -1487,6 +1487,14 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
   //build a new packet wuth the modified data
   //an alternative to this would be to use PeekData to get a pointer to the data buffer, but this is less messy
       Ptr<Packet> p =  Create<Packet> (beacon, 17);
+
+      uint8_t beaconp[17];
+      packet->CopyData(beacon, 17);
+      std::cout << "in gw: beacon packet contents" << std::endl;
+     for(uint8_t i=0;i<17;i++){
+      printf("%u ", beaconp[i]);
+     }
+     std::cout  << std::endl;
 
   //add the tags to the packet
   //note that there is no frame header in beacons
