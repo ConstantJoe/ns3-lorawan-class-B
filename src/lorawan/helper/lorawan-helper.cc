@@ -214,7 +214,8 @@ LoRaWANHelper::EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool p
 
   Ptr<PcapFileWrapper> file = pcapHelper.CreateFile (filename, std::ios::out,
                                                      PcapHelper::DLT_LORATAP); //270 is DLT_LORATAP, see here: http://www.tcpdump.org/linktypes.html
-
+                                                      // But though it has been given a DLT, the implementation is not part of the version of Wireshark in Ubuntu's current LTS repos. Going to try out the newer version.
+                                                      // it looks like there is a packet_lorawan in the newest wireshark, that could be even more useful than LoRaTAP (which is phy layer only)
   if (promiscuous == true)
     {
 
