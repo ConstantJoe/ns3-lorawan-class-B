@@ -88,7 +88,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
   m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBPingPeriodicity(0), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(3), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
+  m_ClassBdownstreamTimer(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(3), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;

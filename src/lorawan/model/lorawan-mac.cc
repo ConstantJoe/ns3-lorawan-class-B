@@ -357,11 +357,16 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
      OpenRW ();    
     ///////////////////////////////////
   } else if (macState == MAC_CLASS_B_PACKET) {
-     NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive ping packet from idle mode
-     // TODO: assert might be too strong here
-    ChangeMacState (macState);
+     //NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive ping packet from idle mode
+     // assert is too strong here
+    if(m_LoRaWANMacState == MAC_IDLE) {
+      ChangeMacState (macState);
 
-     OpenRW ();
+      OpenRW ();  
+    } else {
+      NS_LOG_LOGIC(this << "device is busy during scheduled ping slot; slot missed");
+    }
+    
   }
   else {
     NS_FATAL_ERROR (this << " unknown MAC state " << macState);
@@ -435,7 +440,8 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
   // TODO: which state?
 
   // TODO: this function is called when a packet is fully received. Modify to include possibility of Class B beacon or frame.
-  
+
+
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
     NS_ASSERT (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON || m_LoRaWANMacState == MAC_CLASS_B_PACKET); // gateway would be in MAC_IDLE, class A in either RW1 or RW2
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
@@ -482,8 +488,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
    std::cout << std::endl;*/
 
   if(pktCopy->GetSize() == 16) { //TODO: this is not the best possible method to do this.
-
-    //TODO: err, this is being called by GW too
+    
     NS_LOG_DEBUG("Receiving a beacon!");
     //TODO: this could be cleaned up
     LoRaWANDataIndicationParams params;
@@ -513,7 +518,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
   else {
      NS_LOG_DEBUG("Not receiving a beacon!");
     if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // Class A only accepts downstream
-      if (!macHdr.IsDownstream ()) {
+      if (!macHdr.IsDownstream () && m_LoRaWANMacState != MAC_CLASS_B_PACKET) { //TODO: is this the best way?
         acceptFrame = false;
       }
     } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway only accepts upstream
@@ -536,7 +541,8 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
     if (m_deviceType != LORAWAN_DT_GATEWAY) {
       // 1) DevAddr
       if (m_devAddr != frameHdr.getDevAddr ()) //TODO: NOTE this is where filter of packets get performed
-        acceptFrame = false;
+      {  acceptFrame = false;
+      }
       // 2) Frame counter?
     }
 
@@ -890,16 +896,24 @@ LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
 
   if (!(params.m_msgType == LORAWAN_BEACON)){
     // PHYPayload consists of MAC header, MACPayload and MIC
-  LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
-  p->AddHeader (lorawanMacHdr);
+    //NOTE: LORAWAN beacons and Class B down have been added to the message types for convineance. But they are not specific types in the LoRaWAN standard and so are not specified in the MAC header.
+    if(params.m_msgType == LORAWAN_CLASS_B_DOWN) {
+      LoRaWANMacHeader lorawanMacHdr (LORAWAN_UNCONFIRMED_DATA_DOWN, 0);
+      p->AddHeader (lorawanMacHdr);
+    } else {
+      LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
+      p->AddHeader (lorawanMacHdr);
+    }
+    
+    
 
   
-  // 4B MIC
-  uint32_t size = p->GetSize ();
+    // 4B MIC
+    uint32_t size = p->GetSize ();
   
 
-  p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
-  NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet  
+    p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
+    NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet  
   
   
     LoRaWANMacHeader macHdr;

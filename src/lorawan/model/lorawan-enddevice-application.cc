@@ -119,7 +119,7 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_setAck (false),
     m_totalRx (0),
     m_isClassB (true),
-    m_ClassBPingPeriodicity (0), 
+    m_ClassBPingPeriodicity (6), 
     m_ClassBChannelIndex(7), 
     m_ClassBDataRateIndex(3), 
     m_ClassBCodeRateIndex(1)
@@ -221,7 +221,9 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   //Part of Class B implementation (added by Joe)
   if(m_isClassB)
   {
+
       m_ClassBPingSlots = std::pow(2.0, 7 - m_ClassBPingPeriodicity);
+
       NS_LOG_LOGIC("Scheduling ClassBReceiveBeacon! addr is " << GetNode ()->GetDevice (0)->GetAddress ());
       //schedule event to wake up at exact time of next expected beacon
       //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
@@ -435,7 +437,7 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   Ptr<LoRaWANMac> mac = netDevice->GetMac ();
   LoRaWANMacState state = mac->GetLoRaWANMacState ();
-  NS_ASSERT (state == MAC_RW1 || state == MAC_RW2 || state == MAC_BEACON);
+  NS_ASSERT (state == MAC_RW1 || state == MAC_RW2 || state == MAC_BEACON || state == MAC_CLASS_B_PACKET);
 
   // Log packet reception
   Ipv4Address myAddress = Ipv4Address::ConvertFrom (GetNode ()->GetDevice (0)->GetAddress ());
@@ -460,8 +462,9 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
      //beacon[4] = (t >> 16) & 0xFF;
      //beacon[5] = (t >> 24) & 0xFF;
      //so to get it out is?:
-     uint32_t time = (uint32_t)((beacon[5] << 24) | (beacon[4] << 16) | (beacon[3] << 8) | (beacon[2] << 0)); //bytes may be the wrong way around
-     Time timestamp(time);
+     uint32_t time = (uint32_t)((beacon[4] << 24) | (beacon[3] << 16) | (beacon[2] << 8) | (beacon[1] << 0)); //bytes may be the wrong way around
+     printf("Time: %u\r\n", time);
+     Time timestamp = Seconds(time);
 
      std::cout << "Times:" << std::endl;
     std::cout << timestamp.GetSeconds() << std::endl;
@@ -469,6 +472,9 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
 
     Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::ClassBSchedulePingSlots, this, timestamp);
     m_dsMsgReceivedTrace (deviceAddress, msgTypeTag.GetMsgType(), p, 3);
+  }
+  else if (state == MAC_CLASS_B_PACKET) {
+    std::cout << "Received class b downlink!" << std::endl;
   }
 
 }
@@ -526,7 +532,7 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots (Time timestamp)
   //should function identically to the Network Server equivalent.
   //The ping slots calculated from here should be based on the timestamp from inside the received beacon
 
-    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots; //TODO: double-check this. 2^12 / 2 = 2048 - is that what we're looking for???
+    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;
     uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
     uint8_t buf[16];
 
@@ -574,14 +580,13 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots (Time timestamp)
 
     //on the end device pingTime factors in the time in between the given timestamp and now
     Time offset = Simulator::Now() - timestamp;
-    uint64_t off = offset.GetMilliSeconds(); //TODO: ensure this is correct
+
     NS_LOG_DEBUG("Scheduling ping slots for device" << devAddr.Get ());
     for(uint i=0;i< m_ClassBPingSlots; i++){
-      
-      uint64_t pingTime = (beacon_reserved + (O + period*i) * slotLength) - off; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
-      //auto gw = d->second.m_lastGWs.cbegin(); 
-      //(*gw)->RequestPingSlot(O + period*i, dAddr); // on the end device this method isn't needed as there is no possibility of overlap 
-      Time ping = MilliSeconds(pingTime); 
+      uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
+      Time ping = MilliSeconds(pingTime);
+      ping -= offset; 
+      NS_LOG_DEBUG(this << "ed : ping slot for device " << dAddr << " is at " << Simulator::Now() + ping);
       Simulator::Schedule (ping, &LoRaWANEndDeviceApplication::ClassBPingSlot, this);
     }
 }
@@ -589,6 +594,7 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots (Time timestamp)
 void
 LoRaWANEndDeviceApplication::ClassBPingSlot ()
 {
+  NS_LOG_FUNCTION(this << "Start a ping slot");
   //attempt to receive a packet from the NS
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   netDevice->StartReceivingClassBPacket(m_ClassBChannelIndex, m_ClassBDataRateIndex, m_ClassBCodeRateIndex);

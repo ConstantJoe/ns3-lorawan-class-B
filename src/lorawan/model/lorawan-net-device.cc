@@ -556,6 +556,8 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   
   loRaWANDataRequestParams.m_requestHandle = 0; // TODO
   loRaWANDataRequestParams.m_numberOfTransmissions = 1;
+
+
   if (msgType == LORAWAN_CONFIRMED_DATA_UP) // note that for LORAWAN_CONFIRMED_DATA_DOWN the network server will call ::Send for every retransmission, for end devices ::Send is only called once (app retransmissions vs mac retransmissions)
     loRaWANDataRequestParams.m_numberOfTransmissions = DEFAULT_NUMBER_US_TRANSMISSIONS;
   else if (msgType == LORAWAN_UNCONFIRMED_DATA_UP)

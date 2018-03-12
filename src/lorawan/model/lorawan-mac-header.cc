@@ -104,7 +104,7 @@ LoRaWANMacHeader::Serialize (Buffer::Iterator start) const
   Buffer::Iterator i = start;
 
   uint8_t mhdr = 0; // mhdr: msg type (3 bits), RFU (3 bits) and Major version (2 bits)
-  mhdr |= (m_msgType & 0x07) << 5;
+  mhdr |= (m_msgType & 0x07) << 5; //ERR is likely here
   mhdr |= (m_major & 0x3);
 
   i.WriteU8 (mhdr);

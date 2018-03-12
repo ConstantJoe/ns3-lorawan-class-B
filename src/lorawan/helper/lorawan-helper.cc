@@ -181,7 +181,6 @@ PcapSniffLoRaWAN (Ptr<PcapFileWrapper> file, Ptr<const Packet> packet)
 void
 LoRaWANHelper::EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename)
 {
-  std::cout << "in enable pcap internal" << std::endl; //TODO: this isn't getting called.
   NS_LOG_FUNCTION (this << prefix << nd << promiscuous << explicitFilename);
   //
   // All of the Pcap enable functions vector through here including the ones
@@ -221,35 +220,35 @@ LoRaWANHelper::EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool p
 
       //device->GetMac ()->TraceConnectWithoutContext ("PromiscSniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
       if (device->GetDeviceType() == LORAWAN_DT_END_DEVICE_CLASS_A){
-        std::cout << "device is class a" << std::endl;
+         NS_LOG_FUNCTION (this << " Bound callback to Device MAC (promiscuous)");
         device->GetMac ()->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
       }
       else if (device->GetDeviceType() == LORAWAN_DT_GATEWAY) {
-        std::cout << "device is gateway" << std::endl;
+        NS_LOG_FUNCTION (this << " Bound callback to Gateway MACs (promiscuous)");
         std::vector<Ptr<LoRaWANMac> > macs = device->GetMacs ();
         for (auto mac = macs.cbegin(); mac != macs.cend(); mac++) {
           (*mac)->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
         }
       }
       else {
-        std::cout << "device type err" << std::endl;
+        NS_LOG_ERROR (this << " Can't bound callback to MAC; device type err (promiscuous)");
       }
     }
   else
     {
       if (device->GetDeviceType() == LORAWAN_DT_END_DEVICE_CLASS_A){
-        std::cout << "device is class a" << std::endl;
+        NS_LOG_FUNCTION (this << " Bound callback to Device MAC (non-promiscuous)");
         device->GetMac ()->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
       }
       else if (device->GetDeviceType() == LORAWAN_DT_GATEWAY) {
-        std::cout << "device is gateway" << std::endl;
+       NS_LOG_FUNCTION (this << " Bound callback to Gateway MACs (non-promiscuous)");
         std::vector<Ptr<LoRaWANMac> > macs = device->GetMacs ();
         for (auto mac = macs.cbegin(); mac != macs.cend(); mac++) {
           (*mac)->TraceConnectWithoutContext ("Sniffer", MakeBoundCallback (&PcapSniffLoRaWAN, file));
         }
       }
       else {
-        std::cout << "device type err" << std::endl;
+        NS_LOG_ERROR (this << " Can't bound callback to MAC; device type err (non-promiscuous)");
       }
       
     }

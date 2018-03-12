@@ -947,6 +947,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
       auto gw = d->second.m_lastGWs.cbegin(); 
       (*gw)->RequestPingSlot(O + period*i, dAddr);
       Time ping = MilliSeconds(pingTime); 
+       NS_LOG_DEBUG("gw : ping slot for device " << dAddr << "is at " << Simulator::Now() + ping);
       Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
     }
 
@@ -1068,12 +1069,12 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
   phyParamsTag.SetCodeRate (dsCodeRate); //TODO: ensure the defaults of these are set properly  //this is wrong
-  phyParamsTag.SetPreambleLength (preambleLength); //TODO: magic number
+  phyParamsTag.SetPreambleLength (preambleLength);
   p->AddPacketTag (phyParamsTag);
 
   // Set Msg type
   LoRaWANMsgTypeTag msgTypeTag;
-  msgTypeTag.SetMsgType (elementToSend.m_downstreamMsgType); //TODO: ensure the defaults of these are set properly 
+  msgTypeTag.SetMsgType (elementToSend.m_downstreamMsgType);
   p->AddPacketTag (msgTypeTag);
 
   // Update DS Packet counters:
@@ -1487,14 +1488,6 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
   //build a new packet wuth the modified data
   //an alternative to this would be to use PeekData to get a pointer to the data buffer, but this is less messy
       Ptr<Packet> p =  Create<Packet> (beacon, 17);
-
-      uint8_t beaconp[17];
-      packet->CopyData(beacon, 17);
-      std::cout << "in gw: beacon packet contents" << std::endl;
-     for(uint8_t i=0;i<17;i++){
-      printf("%u ", beaconp[i]);
-     }
-     std::cout  << std::endl;
 
   //add the tags to the packet
   //note that there is no frame header in beacons
