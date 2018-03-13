@@ -489,6 +489,9 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
 
   if(pktCopy->GetSize() == 16) { //TODO: this is not the best possible method to do this.
     
+    m_macRxTrace (p);
+    m_snifferTrace(p);
+
     NS_LOG_DEBUG("Receiving a beacon!");
     //TODO: this could be cleaned up
     LoRaWANDataIndicationParams params;
@@ -548,6 +551,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
 
     if (acceptFrame) {
       m_macRxTrace (p);
+      m_snifferTrace(p);
       if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
         // Check Ack bit (?) -> for class A, can remove frame that is pending in TX queue
         // Class A: check FPending bit (?) -> should schedule a new TX op soon
