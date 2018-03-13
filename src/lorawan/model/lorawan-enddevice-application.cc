@@ -217,8 +217,6 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   CancelEvents ();
 
 
-  //////////////////////////////////////////////
-  //Part of Class B implementation (added by Joe)
   if(m_isClassB)
   {
 
@@ -234,8 +232,6 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   else {
     NS_LOG_LOGIC("Not Scheduling ClassBReceiveBeacon! addr is " << GetNode ()->GetDevice (0)->GetAddress ());
   }
-
-  //////////////////////////////////////////////
 
   // If we are not yet connected, there is nothing to do here
   // The ConnectionComplete upcall will start timers at that time
@@ -324,13 +320,12 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   uint32_t channelIndex = m_channelRandomVariable->GetInteger ();
   NS_ASSERT (channelIndex <= LoRaWAN::m_supportedChannels.size () - 2); // -2 because end devices should not use the special high power channel for US traffic
 
-  uint8_t preambleLength = 8; //TODO: move to better place
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (channelIndex);
   phyParamsTag.SetDataRateIndex (m_dataRateIndex);
-  phyParamsTag.SetCodeRate (3); //TODO: why is this three???
+  phyParamsTag.SetCodeRate (1); //TODO: why was this three?
 
-  phyParamsTag.SetPreambleLength (preambleLength);
+  phyParamsTag.SetPreambleLength (8); //TODO: magic number
 
   packet->AddPacketTag (phyParamsTag);
 
@@ -408,7 +403,7 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
         }
       else
         {
-          NS_LOG_WARN (this << " Unexpected address type"); //TODO: this 
+          NS_LOG_WARN (this << " Unexpected address type");
         }
     }
 }
@@ -418,7 +413,6 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
 {
   NS_LOG_FUNCTION(this << p);
 
-  //TODO: this is where scheduling of ping slots should be fired off.
   // set m_setAck to true in case a CONFIRMED_DATA_DOWN message was received:
   // Try to parse Packet tag:
   LoRaWANMsgTypeTag msgTypeTag;
@@ -451,17 +445,13 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
      uint8_t beacon[17];
      p->CopyData(beacon, 17);
 
+     //TODO: use logging instead of printf and cout
      std::cout << "beacon packet contents" << std::endl;
      for(uint8_t i=0;i<17;i++){
       printf("%u ", beacon[i]);
      }
      std::cout  << std::endl;
-     //this is how it was originally put in
-     //beacon[2] = (t >> 0)  & 0xFF;
-     //beacon[3] = (t >> 8)  & 0xFF;
-     //beacon[4] = (t >> 16) & 0xFF;
-     //beacon[5] = (t >> 24) & 0xFF;
-     //so to get it out is?:
+
      uint32_t time = (uint32_t)((beacon[4] << 24) | (beacon[3] << 16) | (beacon[2] << 8) | (beacon[1] << 0)); //bytes may be the wrong way around
      printf("Time: %u\r\n", time);
      Time timestamp = Seconds(time);
@@ -470,7 +460,7 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
     std::cout << timestamp.GetSeconds() << std::endl;
     std::cout << Simulator::Now() << std::endl;
 
-    Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::ClassBSchedulePingSlots, this, timestamp);
+    Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::ClassBSchedulePingSlots, this, timestamp); //schedule next ping slots
     m_dsMsgReceivedTrace (deviceAddress, msgTypeTag.GetMsgType(), p, 3);
   }
   else if (state == MAC_CLASS_B_PACKET) {
@@ -491,32 +481,12 @@ void LoRaWANEndDeviceApplication::ConnectionFailed (Ptr<Socket> socket)
   NS_FATAL_ERROR (this << " Connection failed");
 }
 
-
-
-
-//////////////////////////////////////////////
-  //Part of Class B implementation (added by Joe)
 void
 LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
 {
-  //for the MAC layer - the m_LoRaWANMacState should be for Class A only, a different state variable should be used for class B
-  // in this way, Class A and Class B functionality will operate independently (apart from when there's a simultanous request), like in LoRaWAN
-  //so the ClassBReceiveBeacon function (controls timing) calls a MAC layer function which is similar to OpenRW, but not based on same state system
-  //calculate preamble time should be modified too to account for longer preamble in beacons
-
-  //TODO: actually - this is a bad idea. There should be one state system, and then errlog whenever there is a clash. 
-  //write out all the states
-
   //call method in MAC layer indicating time for Class B beacon
-  //TODO: is this bad practice? This links this application layer to the lower level LoRaWAN layers.
-  //but will these application layers ever really be used with an alternative PHY layer?
-  //unlikely, but I guess its possible. Talk to Shahwaiz about this. If we decide not to do this, then the original authors' gateway version will also have to be changed. 
-  //If we do decide to do this, then save the MAC layer as a variable,
-  //Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
-  //TODO: uncomment out when this function is completed.
-  //netDevice->GetMac()->ReceiveBeacon();
 
-   // something like setLoRaWANMACState(BEACON);
+  //TODO: is this direct call bad practice?
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   netDevice->StartReceivingBeacon();
   //schedule next beacon receive.
@@ -596,11 +566,9 @@ LoRaWANEndDeviceApplication::ClassBPingSlot ()
 {
   NS_LOG_FUNCTION(this << "Start a ping slot");
   //attempt to receive a packet from the NS
+  //TODO: is this direct call bad practice?
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   netDevice->StartReceivingClassBPacket(m_ClassBChannelIndex, m_ClassBDataRateIndex, m_ClassBCodeRateIndex);
 }
-
-//////////////////////////////////////////////
-
 
 } // Namespace ns3

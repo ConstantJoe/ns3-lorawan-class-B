@@ -309,12 +309,6 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   if (codeRate != 1 && codeRate != 2 && codeRate != 3 && codeRate != 4)
     validConf = false;
 
-  //////////////////////////////
-  //Class B change: implicit header is used in LoRaWAN Class B Beacon
-  //////////////////////////////
-  /*if (implicitHeader) // only explicit header is supported in LoRaWAN
-    validConf = false;*/
-
   if (!validConf) {
     NS_LOG_ERROR(this << "Invalid TX config supplied, aborting.");
     return false;
@@ -326,11 +320,9 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   m_currentDataRateIndex = dataRateIndex;
   m_codeRate = codeRate;
   m_crcOn = crcOn;
-
-  /////////////////////////////////////
   m_preambleLength = preambleLength;
-  m_implicitHeader = implicitHeader;
-  /////////////////////////////////////
+  m_implicitHeader = implicitHeader; //implicit header is used in LoRaWAN Class B Beacon only
+  //TODO: is the implicit mode featured in the error model?
 
   // update TX PSD
   LoRaWANSpectrumValueHelper psdHelper;
@@ -808,9 +800,7 @@ LoRaWANPhy::PdDataRequest (const uint32_t phyPayloadLength, Ptr<Packet> p)
       txParams->dataRateIndex = m_currentDataRateIndex;
       txParams->codeRate = m_codeRate;
 
-      /////////////////////////
-      //Note: NOT adding preamble length to this.
-      /////////////////////////
+      //TODO: factor in preamble length to LoRaWANSpectrumSignalParameters
 
       m_channel->StartTx (txParams);
       m_pdDataRequest = Simulator::Schedule (txParams->duration, &LoRaWANPhy::EndTx, this);
@@ -885,20 +875,16 @@ LoRaWANPhy::CalculateTxTime (uint8_t payloadLength)
 
   double nSymbolsPreamble = m_preambleLength + 4.25;
   uint16_t nSymbolsPayload = 8;
-  // LoRaWAN mandates no implicit header, assume low data rate optimization (DE) is not used
+  
   uint32_t crc = 1;
   if (!m_crcOn)
     crc = 0;
 
-  ///////////////////////////////
+  // LoRaWAN Class A mandates no implicit header, we assume low data rate optimization (DE) is not used
   uint32_t implicitHeader = 0;
-  if(m_implicitHeader)
+  if(m_implicitHeader) //implicit header is used in the beacon of Class B
     implicitHeader = 1;
-  ///////////////////////////////
 
-  ////////////
-  //Class B change: adding back in possibility of implicit header
-  ////////////
   uint16_t nConditionalSymbolsPayload = ceil((8.0*payloadLength - 4.0*sf + 28 + 16*crc - 20*implicitHeader)/4.0/(double)sf)*(m_codeRate + 4);
   if (nConditionalSymbolsPayload > 0.0)
     nSymbolsPayload += nConditionalSymbolsPayload;

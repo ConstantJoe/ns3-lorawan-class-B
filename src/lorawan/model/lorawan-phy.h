@@ -582,10 +582,8 @@ private:
   uint8_t m_currentDataRateIndex; // only for TX
   double m_txPower; // in dBm
   uint8_t m_codeRate; // only for TX
-  bool m_implicit_header;
   uint8_t m_preambleLength;
   bool m_crcOn;
-
   bool m_implicitHeader;
 
 }; // class LoRaWANPhy

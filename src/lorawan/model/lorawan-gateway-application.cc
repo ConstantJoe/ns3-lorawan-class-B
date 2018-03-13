@@ -41,8 +41,6 @@
 #include "ns3/string.h"
 #include "ns3/pointer.h"
 
-//#include "aes.h"
-
 namespace ns3 {
 
   NS_LOG_COMPONENT_DEFINE ("LoRaWANGatewayApplication");
@@ -195,16 +193,15 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
   info.m_rx1DROffset = 0; // default
   info.m_setAck = false;
 
-  //////////////////////////////
-  // number of ping slots is based on ping periodicity, and is always a power of two.
-  info.m_ClassBPingSlots = std::pow(2.0, 7 - info.m_ClassBPingPeriodicity);
-  //////////////////////////////
+  if(m_generateClassBDataDown){
+    info.m_ClassBPingSlots = std::pow(2.0, 7 - info.m_ClassBPingPeriodicity); // number of ping slots is based on ping periodicity, and is always a power of two.
+  }
 
   std::ostringstream addrOss;
   ipv4DevAddr.Print (addrOss);
   std::string addrStr = addrOss.str();
 
-  NS_LOG_DEBUG("address of node is: " << addrStr);
+  NS_LOG_DEBUG("Address of node is: " << addrStr);
 
   if (m_generateDataDown) {
     Time t = Seconds (this->m_downstreamIATRandomVariable->GetValue ());
@@ -305,7 +302,6 @@ LoRaWANNetworkServer::HandleUSPacket (Ptr<LoRaWANGatewayApplication> lastGW, Add
     it->second.m_lastChannelIndex = phyParamsTag.GetChannelIndex ();
     it->second.m_lastDataRateIndex = phyParamsTag.GetDataRateIndex ();
     it->second.m_lastCodeRate = phyParamsTag.GetCodeRate ();
-    it->second.m_lastPreambleLength = phyParamsTag.GetPreambleLength (); //TODO: does this get used later?
   } else {
     NS_LOG_WARN (this << " LoRaWANPhyParamsTag not found on packet.");
   }
@@ -540,12 +536,11 @@ LoRaWANNetworkServer::SendDSPacket (uint32_t deviceAddr, Ptr<LoRaWANGatewayAppli
     return;
   }
 
-  uint8_t preambleLength = 8; //TODO: move to better place
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (dsChannelIndex);
   phyParamsTag.SetDataRateIndex (dsDataRateIndex);
   phyParamsTag.SetCodeRate (it->second.m_lastCodeRate);
-  phyParamsTag.SetPreambleLength (preambleLength); 
+  phyParamsTag.SetPreambleLength (8); //TODO: magic number
   p->AddPacketTag (phyParamsTag);
 
   // Set Msg type
@@ -682,12 +677,6 @@ LoRaWANNetworkServer::GetConfirmedDataDown (void) const
   return m_confirmedData;
 }
 
-
-////////////////////////////////////////////////////////////
-
-
-//Code in here is modifications of the NetworkServer added by Joe.
-
 // adding a stream of data specifically to be sent as Class B downlink traffic.
 // based on DSTimerExpired 
 void
@@ -734,14 +723,6 @@ LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
     LoRaWANNSDSQueueElement* element = new LoRaWANNSDSQueueElement ();
     element->m_downstreamPacket = packet;
     element->m_downstreamFramePort = 1;
-    /*if (m_confirmedData) {
-      element->m_downstreamMsgType = LORAWAN_CONFIRMED_DATA_DOWN;
-      element->m_downstreamTransmissionsRemaining = DEFAULT_NUMBER_DS_TRANSMISSIONS;
-    } else {
-      element->m_downstreamMsgType = LORAWAN_UNCONFIRMED_DATA_DOWN;
-      element->m_downstreamTransmissionsRemaining = 1;
-    }*/
-
     element->m_downstreamMsgType = LORAWAN_CLASS_B_DOWN;
     element->m_downstreamTransmissionsRemaining = 1;
 
@@ -1212,8 +1193,6 @@ LoRaWANNetworkServer::getRelativeGPSTime(uint64_t secondsPassed)
 }
 
 
-////////////////////////////////////////////////////////////
-
 LoRaWANGatewayApplication::LoRaWANGatewayApplication ()
 : m_socket (0),
 m_connected (false),
@@ -1230,8 +1209,8 @@ LoRaWANGatewayApplication::GetTypeId (void)
   .SetGroupName("Applications")
   .AddConstructor<LoRaWANGatewayApplication> ()
   .AddTraceSource ("Tx", "A new packet is created and is sent",
-   MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
-   "ns3::Packet::TracedCallback")
+            MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
+            "ns3::Packet::TracedCallback")
   ;
   return tid;
 }
@@ -1354,7 +1333,7 @@ void LoRaWANGatewayApplication::StartApplication () // Called at time specified 
 
 
     }
-    NS_LOG_DEBUG("GW address is:! " << GetNode ()->GetDevice (0)->GetAddress ());
+    NS_LOG_DEBUG("GW address is: " << GetNode ()->GetDevice (0)->GetAddress ());
   // instruct Network Server to populate end devices data structure:
   // NOTE that we call PopulateEndDevices in StartApplication and not in DoInitialize as the attributes for the NetworkServer object have not yet been set at the of DoInitialize()
     this->m_lorawanNSPtr->PopulateEndDevices ();
@@ -1555,9 +1534,6 @@ LoRaWANGatewayApplication::IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr
     return false;
   }
 }
-
-
-////////////////////////////////////////////////////////////
 
 } // Namespace ns3
 

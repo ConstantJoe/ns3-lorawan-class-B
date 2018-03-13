@@ -30,15 +30,14 @@
 #include "ns3/simple-ref-count.h"
 #include "ns3/random-variable-stream.h"
 
-////////////
 #include "ns3/vector.h"
-#include <ns3/mobility-model.h>
-////////////
+#include "aes.h"
+
 #include "ns3/lorawan.h"
 #include <unordered_map>
 #include <deque>
 
-#include "aes.h"
+
 
 namespace ns3 {
 
@@ -98,9 +97,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint8_t         m_lastChannelIndex;
   uint8_t         m_lastCodeRate;
   Time            m_lastSeen;
-  /////////////////////
-  uint8_t         m_lastPreambleLength;
-  /////////////////////
+
   bool            m_framePending;
   bool            m_setAck;
   uint32_t        m_fCntUp;       //!< Uplink frame counter
@@ -125,18 +122,15 @@ typedef struct LoRaWANEndDeviceInfoNS {
   // Pending downstream traffic
   std::deque<LoRaWANNSDSQueueElement* > m_downstreamQueue;
 
-  //////////////////////////////////
-  // Code in here has been added by Joe.
   std::deque<LoRaWANNSDSQueueElement* > m_ClassBdownstreamQueue;
   uint32_t    m_nClassBPacketsGenerated;   //!< The total number of generated DS packets
   uint32_t    m_nClassBPacketsSent;   //!< The total number of sent DS packets
   EventId     m_ClassBdownstreamTimer; // DS traffic generator timer
-  uint8_t     m_ClassBPingSlots; //number of ping slots per beacon period wanted by the device. Setting default as 2 for now, TODO: what is default in spec?
+  uint8_t     m_ClassBPingSlots; 
   uint8_t     m_ClassBPingPeriodicity;
   uint8_t     m_ClassBChannelIndex;
   uint8_t     m_ClassBDataRateIndex;  
   uint8_t     m_ClassBCodeRateIndex;
-  //////////////////////////////////
 
   EventId     m_downstreamTimer; // DS traffic generator timer
 } LoRaWANEndDeviceInfoNS;
@@ -204,10 +198,6 @@ private:
   TracedCallback<uint32_t, uint8_t, uint8_t, Ptr<const Packet> > m_dsMsgDroppedTrace;
   TracedCallback<uint32_t, uint8_t, Ptr<const Packet>> m_usMsgReceivedTrace;
 
-  //////////////////////////////////
-
-  // Code in here has been added by Joe.
-
     uint16_t m_ClassBpktSize;
     Ptr<RandomVariableStream> m_ClassBdownstreamIATRandomVariable;
     EventId     m_beaconTimer;
@@ -218,9 +208,6 @@ private:
     uint8_t     m_ClassBBeaconChannelIndex;
     uint8_t     m_ClassBBeaconDataRateIndex;
     uint64_t    m_simulationStartTime;
-
-    //TODO: modify LoRaWANEndDeviceInfoNS to add another queue specifically for Class B downlinks (like second.m_downstreamQueue and second.m_nDSPacketsGenerated are used now)
-  //////////////////////////////////
 };
 
 
@@ -280,7 +267,6 @@ public:
   void SendDSPacket (Ptr<Packet> p);
 
 
-  ////////////////////////////////////////////////////////////
   void SendBeacon (Ptr<Packet> packet);
 
   void RequestPingSlot (uint64_t slot, uint32_t devAddr); 
@@ -288,7 +274,7 @@ public:
   void ClearPingSlotQueues();
 
   bool IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr);
-  ////////////////////////////////////////////////////////////
+
 protected:
   virtual void DoInitialize (void);
   virtual void DoDispose (void);

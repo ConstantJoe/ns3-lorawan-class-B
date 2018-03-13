@@ -567,12 +567,6 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
     m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
     return true;
   } 
-  //////////////////////////////////////////////
-  /*else if (m_deviceType == LORAWAN_DT_GATEWAY && msgType == LORAWAN_BEACON) {
-    m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
-    return true;
-  }*/
-  /////////////////////////////////////////////
   else if (m_deviceType == LORAWAN_DT_GATEWAY) { //this is fine for Class B beacons and downlinks too
     // select appropiate MAC/Phy based on channel and data rate of TX
     uint8_t macIndex = 0;
@@ -628,6 +622,8 @@ void
 LoRaWANNetDevice::MacEndsTx (Ptr<LoRaWANMac> macPtr)
 {
   NS_ASSERT (m_deviceType == LORAWAN_DT_GATEWAY);
+
+  NS_LOG_FUNCTION(this);
 
   // Switch all MACs and Phys except macPtr to MAC_IDLE state
   for (uint8_t i = 0; i < m_macs.size (); i++) {
@@ -714,7 +710,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
   phyParamsTag.SetChannelIndex (params.m_channelIndex);
   phyParamsTag.SetDataRateIndex (params.m_dataRateIndex);
   phyParamsTag.SetCodeRate (params.m_codeRate);
-  phyParamsTag.SetPreambleLength (params.m_preambleLength); //TODO: does this get set? Is it needed?
+  phyParamsTag.SetPreambleLength (params.m_preambleLength);
   pkt->AddPacketTag (phyParamsTag);
 
   // Add MsgTypeTag to packet
@@ -722,7 +718,7 @@ LoRaWANNetDevice::DataIndication (LoRaWANDataIndicationParams params, Ptr<Packet
   msgTypeTag.SetMsgType (params.m_msgType);
   pkt->AddPacketTag (msgTypeTag);
 
-  Address senderAddress(params.m_endDeviceAddress); //TODO: ensure NULL is accepted as a broadcast
+  Address senderAddress(params.m_endDeviceAddress);
 
   m_receiveCallback (this, pkt, 0, senderAddress);
 }

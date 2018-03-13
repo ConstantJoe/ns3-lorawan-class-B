@@ -183,10 +183,9 @@ namespace ns3 {
     void SetCodeRate (uint8_t);
     uint8_t GetCodeRate (void) const;
 
-    /////////////////////////////////
     void SetPreambleLength (uint8_t);
     uint8_t GetPreambleLength (void) const;
-    /////////////////////////////////
+
     /**
      * \brief Get the type ID.
      * \return the object TypeId
@@ -212,9 +211,7 @@ namespace ns3 {
     uint8_t m_dataRateIndex;
     uint8_t m_codeRate;
 
-    /////////////////////////////////
     uint8_t m_preambleLength;
-    /////////////////////////////////
   }; // class LoRaWANPhyParamsTag
 
   typedef FlowIdTag LoRaWANPhyTraceIdTag;
