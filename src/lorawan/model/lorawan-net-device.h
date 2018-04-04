@@ -133,6 +133,8 @@ public:
   void StartReceivingBeacon (void);
 
   void StartReceivingClassBPacket (uint8_t m_ClassBChannelIndex, uint8_t m_ClassBDataRateIndex, uint8_t m_ClassBCodeRateIndex);
+
+  void PrintFinalDetails (void);
   /////////////////////////////
 
 private:

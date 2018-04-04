@@ -329,6 +329,12 @@ public:
   void setClassBChannelIndex(uint8_t  channelIndex);
   void setClassBDataRateIndex(uint8_t dataRateIndex);
   void setClassBCodeRateIndex(uint8_t codeRateIndex);
+
+  uint32_t m_failToTxBusy;
+  uint32_t m_failToTxDutyCycle;
+  uint32_t m_failToRxBeaconBusy;
+  uint32_t m_failToRxDlBusy;
+  
 protected:
   // Inherited from Object.
   virtual void DoInitialize (void);

@@ -146,6 +146,11 @@ LoRaWANMac::LoRaWANMac (uint8_t index) : m_index (index)
   m_retransmission = 0;
   m_txPkt = 0;
 
+  m_failToTxBusy = 0;
+  m_failToTxDutyCycle = 0;
+  m_failToRxBeaconBusy = 0;
+  m_failToRxDlBusy = 0;
+
   m_ackTimeOutRandomVariable = CreateObject<UniformRandomVariable> ();
 }
 
@@ -274,22 +279,24 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
         CheckQueue ();
       }
   } else if (macState == MAC_TX) {
-      NS_ASSERT (m_LoRaWANMacState == MAC_IDLE);
+      //TODO: assert will be too strong here. if not currently in idle state, report err, keep current mac state, and continue
+      if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
+         // for gateways: switch off other PHY/MACs on this net-device
+        if (m_deviceType == LORAWAN_DT_GATEWAY) {
+          NS_ASSERT (!this->m_beginTxCallback.IsNull ());
+          this->m_beginTxCallback (this);
+        }
 
-      // for gateways: switch off other PHY/MACs on this net-device
-      if (m_deviceType == LORAWAN_DT_GATEWAY) {
-        NS_ASSERT (!this->m_beginTxCallback.IsNull ());
-        this->m_beginTxCallback (this);
-      }
+        ChangeMacState (macState);
 
-      ChangeMacState (macState);
-
-      if (ConfigurePhyForTX ()) {
-        // Set Phy to TX ON
-        m_phy->SetTRXStateRequest (LORAWAN_PHY_TX_ON);
-
-        // Wait for a state confirmation via SetTRXStateConfirm before starting transmission
-        //StartTransmission ();
+        if (ConfigurePhyForTX ()) {
+          // Set Phy to TX ON
+          m_phy->SetTRXStateRequest (LORAWAN_PHY_TX_ON);
+        } 
+        
+      } else {
+        m_failToTxBusy++;
+        NS_LOG_LOGIC(this << "device is busy at this time (not idle); couldn't transmit, transmission canceled. LoRaWANMacState: " << m_LoRaWANMacState); //TODO: is the packet lost then? record that
       }
   } else if (macState == MAC_WAITFORRW1) {
       NS_ASSERT (m_LoRaWANMacState == MAC_TX);
@@ -350,17 +357,26 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
       // Request to Put Phy into LORAWAN_PHY_FORCE_TRX_OFF
       m_phy->SetTRXStateRequest (LORAWAN_PHY_FORCE_TRX_OFF);
   } else if (macState == MAC_BEACON) {
-    NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive beacon from idle mode
-    ChangeMacState (macState);
+    //Assert is too strong here; beacons can be missed if Class A traffic is currently being sent.
+    //NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive beacon from idle mode
+    if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
+      ChangeMacState (macState);
 
-     OpenRW ();    
+      OpenRW ();  
+    } else {
+      m_failToRxBeaconBusy++;
+      NS_LOG_LOGIC(this << "device is busy during scheduled beacon receive; slot missed. LoRaWANMacState: " << m_LoRaWANMacState);
+    }
+     
+   
   } else if (macState == MAC_CLASS_B_PACKET) {
     if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
       ChangeMacState (macState);
 
       OpenRW ();  
     } else {
-      NS_LOG_LOGIC(this << "device is busy during scheduled ping slot; slot missed");
+      m_failToRxDlBusy++;
+      NS_LOG_LOGIC(this << "device is busy during scheduled ping slot; slot missed. LoRaWANMacState: " << m_LoRaWANMacState);
     }
     
   }
@@ -923,20 +939,26 @@ LoRaWANMac::CheckQueue ()
       return; // return, otherwise we will remove the first tx queue element below
     } else {
       NS_LOG_DEBUG (this << " Cannot sent packet because sub band #" << static_cast<uint16_t>(subBandIndex) << " is not available");
+      m_failToTxDutyCycle++;
       //if this is a ping slot then this is okay, the packet can be sent in a later one instead.
       if (m_deviceType != LORAWAN_DT_GATEWAY) {
         m_lorawanMacRDC->ScheduleSubBandTimer (this, subBandIndex); // schedule RDC timer
       }
     }
   } else {
-    if (m_LoRaWANMacState != MAC_IDLE)
+    //TODO: measure these metrics???
+    if (m_LoRaWANMacState != MAC_IDLE) {
       NS_LOG_DEBUG (this << " Cannot sent packet because MAC is not idle, MAC state is equal to " << m_LoRaWANMacState);
-    if (m_txQueue.empty ())
+    }
+    if (m_txQueue.empty ()) {
       NS_LOG_DEBUG (this << " tx queue is empty, so there is no packet to send.");
-    if (m_txPkt)
+    }
+    if (m_txPkt) {
       NS_LOG_DEBUG (this << " Cannot sent packet because of ongoing tx (m_txPkt is set)");
-    if (m_setMacState.IsRunning ())
+    }
+    if (m_setMacState.IsRunning ()) {
       NS_LOG_DEBUG (this << " Cannot sent packet because set MAC state event is running");
+    }
   }
 
   // If a gateway can not send a packet immediately, then there is no use in trying to send it later as the RW of the end device will not be open later
@@ -949,14 +971,19 @@ LoRaWANMac::CheckQueue ()
 
       
       //if not a ping slot
-      if(params.m_msgType != LORAWAN_CLASS_B_DOWN) {
-
-        this->RemoveFirstTxQElement (false);
-
-          NS_FATAL_ERROR (this << " Gateway is unable to send packet immediately, aborting packet transmission.");
+      if(params.m_msgType == LORAWAN_CLASS_B_DOWN) {
+        NS_LOG_DEBUG(this << "Can't send ping message in this slot, it will be sent later.");
+        //TODO: increment some counter here?
+      }
+      else if (params.m_msgType == LORAWAN_BEACON) {
+         NS_LOG_DEBUG(this << "Can't currently send the beacon frame.");
+         //TODO: increment some counter here?
       }
       else {
-        NS_LOG_DEBUG(this << "Can't send ping message in this slot, it will be sent later.");
+        this->RemoveFirstTxQElement (false);
+
+          // NS_LOG_DEBUG (this << params.m_msgType ); //This happens when GW can't send beacon?
+          NS_FATAL_ERROR (this << " Gateway is unable to send packet immediately, aborting packet transmission.");
       }
     }
   }

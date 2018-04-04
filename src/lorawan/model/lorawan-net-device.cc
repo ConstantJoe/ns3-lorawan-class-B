@@ -106,7 +106,11 @@ void
 LoRaWANNetDevice::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
+
+  PrintFinalDetails();
+  
   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+
     m_mac->Dispose ();
     m_phy->Dispose ();
     m_phy = 0;
@@ -780,7 +784,25 @@ LoRaWANNetDevice::StartReceivingClassBPacket (uint8_t m_ClassBChannelIndex, uint
 }
 
 /////////////////////////////////////////
+void
+LoRaWANNetDevice::PrintFinalDetails ()
+{
+  //phy layers could be accessed here too, if needed.
+   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+      std::cout << Ipv4Address::ConvertFrom (GetAddress()).Get() << "\t" << m_mac->m_failToTxBusy << "\t" << m_mac->m_failToTxDutyCycle << "\t" << m_mac->m_failToRxBeaconBusy << "\t" << m_mac->m_failToRxDlBusy << std::endl;
+  } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+    uint32_t tot_failToTxBusy = 0;
+    uint32_t tot_failToTxDutyCycle = 0;
+    uint32_t tot_failToRxBeaconBusy = 0;
+    uint32_t tot_failToRxDlBusy = 0;
+    for (uint8_t i = 0; i < m_phys.size(); i++) {
+      tot_failToTxBusy += m_macs[i]->m_failToTxBusy;
+      tot_failToTxDutyCycle += m_macs[i]->m_failToTxDutyCycle;
+      tot_failToRxBeaconBusy += m_macs[i]->m_failToRxBeaconBusy;
+      tot_failToRxDlBusy += m_macs[i]->m_failToRxDlBusy;
+    }
+    std::cout << "0" << "\t" << tot_failToTxBusy << "\t" << tot_failToTxDutyCycle << "\t" << tot_failToRxBeaconBusy << "\t" << tot_failToRxDlBusy << std::endl;
+  }
 
-
-
+}
 } // namespace ns3

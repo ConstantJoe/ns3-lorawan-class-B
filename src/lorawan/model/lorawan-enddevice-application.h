@@ -91,6 +91,8 @@ public:
   */
   int64_t AssignStreams (int64_t stream);
 
+  void PrintFinalDetails();
+
 protected:
   virtual void DoDispose (void);
 private:
@@ -118,12 +120,14 @@ private:
   bool            m_connected;    //!< True if connected
   Ptr<RandomVariableStream> m_channelRandomVariable;	//!< rng for channel selection for upstream TX
   Ptr<RandomVariableStream> m_upstreamIATRandomVariable;	//!< rng for inter arrival timing for upstream TX
+  Ptr<RandomVariableStream> m_upstreamSendIATRandomVariable;
   uint32_t        m_pktSize;      //!< Size of packets
   uint32_t 	  m_dataRateIndex;	//!< Data rate index to use for US transmissions
   Time            m_lastTxTime; //!< Time last packet sent
   uint64_t        m_maxBytes;     //!< Limit total number of bytes sent
   uint64_t        m_totBytes;     //!< Total bytes sent so far
   EventId         m_txEvent;     //!< Event id for next start or stop event
+  EventId         m_sendEvent;     //!< Event id for next start or stop event
   bool 		  m_confirmedData; //<! Send upstream data as Confirmed Data Up MAC packets
 
   uint8_t         m_framePort;	  //!< Frame port
@@ -131,10 +135,6 @@ private:
   uint32_t        m_fCntDown;     //!< Downlink frame counter
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
   uint64_t        m_totalRx;      //!< Total bytes received
-
-
-  /////////////////////////////////////////////////////////////////////////////////////
-  //Part of Class B implementation (added by Joe)
 
   void ClassBSchedulePingSlots (Time timestamp);
   void ClassBReceiveBeacon ();
@@ -147,8 +147,18 @@ private:
   uint8_t     m_ClassBChannelIndex;
   uint8_t     m_ClassBDataRateIndex;  
   uint8_t     m_ClassBCodeRateIndex;
+  uint32_t    m_ClassBfcntDown;
+  uint32_t    m_ClassBfcntBeacon;
 
-  /////////////////////////////////////////////////////////////////////////////////////
+  uint32_t    m_fcntRX1;
+  uint32_t    m_fcntRX2;
+  uint32_t    m_failToSendDCLimit;
+  uint32_t    m_attemptedThroughput;
+
+  uint32_t    m_devAddr;
+
+
+
 
   /// Traced Callback: transmitted packets.
   TracedCallback<uint32_t, uint8_t, Ptr<const Packet>> m_usMsgTransmittedTrace;

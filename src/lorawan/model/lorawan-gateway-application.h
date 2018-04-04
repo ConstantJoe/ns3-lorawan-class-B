@@ -87,7 +87,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
   m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(3), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
+  m_ClassBdownstreamTimer(), m_ClassBdownstreamTimerSchedule(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(0), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;
@@ -126,6 +126,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   uint32_t    m_nClassBPacketsGenerated;   //!< The total number of generated DS packets
   uint32_t    m_nClassBPacketsSent;   //!< The total number of sent DS packets
   EventId     m_ClassBdownstreamTimer; // DS traffic generator timer
+  EventId     m_ClassBdownstreamTimerSchedule;
   uint8_t     m_ClassBPingSlots; 
   uint8_t     m_ClassBPingPeriodicity;
   uint8_t     m_ClassBChannelIndex;
@@ -168,6 +169,7 @@ public:
   //////////////////////////////////
   // Code in here has been added by Joe.
   void ClassBDSTimerExpired (uint32_t deviceAddr); //generates downlink packets for Class B. May be removed to a seperate data generator class later.
+  void ClassBScheduleExpiry(uint32_t deviceAddr);
   void ClassBSendBeacon ();
   void ClassBPingSlot(uint32_t devAddr, uint64_t pingTime);
 
@@ -176,7 +178,10 @@ public:
   uint64_t getRelativeGPSTime(uint64_t secondsPassed);
   uint64_t countLeaps(uint64_t gpsMS, bool isUnixToGPS);
   bool shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS);
+  void AssignInitialGateway(Ptr<LoRaWANGatewayApplication> gw);
 
+
+  void PrintFinalDetails();
   //////////////////////////////////
 
 private:
@@ -200,6 +205,7 @@ private:
 
     uint16_t m_ClassBpktSize;
     Ptr<RandomVariableStream> m_ClassBdownstreamIATRandomVariable;
+    Ptr<RandomVariableStream> m_ClassBdownstreamRandomVariable;
     EventId     m_beaconTimer;
     std::set<Ptr<LoRaWANGatewayApplication>> m_gateways;
     bool m_generateClassBDataDown;
@@ -208,6 +214,8 @@ private:
     uint8_t     m_ClassBBeaconChannelIndex;
     uint8_t     m_ClassBBeaconDataRateIndex;
     uint64_t    m_simulationStartTime;
+
+    uint32_t  m_numberOfBeacons;
 };
 
 
@@ -275,6 +283,8 @@ public:
 
   bool IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr);
 
+  void PrintFinalDetails();
+
 protected:
   virtual void DoInitialize (void);
   virtual void DoDispose (void);
@@ -309,6 +319,8 @@ private:
   TracedCallback<Ptr<const Packet> > m_txTrace;
 
   Ptr<LoRaWANNetworkServer> m_lorawanNSPtr; //!< Pointer to LoRaWANNetworkServer singleton
+
+
 
 private:
   /**
