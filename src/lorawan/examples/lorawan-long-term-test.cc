@@ -75,14 +75,36 @@ SetupPacketReceive (Ptr<Node> node)
   return sink;
 }
 
+//used to give % of simulation finished
+void
+PrintTime(uint8_t i)
+{
+  //std::cout << "Current time: " << Simulator::Now() << std::endl;
+  printf("Percentage finished: %d\n", i);
+}
+
 int main (int argc, char *argv[])
 {
 
   uint32_t nNodes = 4;
+  uint8_t  dr = 0;
 
   CommandLine cmd;
   cmd.AddValue("nNodes", "Number of nodes to add to simulation", nNodes);
+  cmd.AddValue("dr", "Data rate to be used (up and down, a and b)", dr);
   cmd.Parse (argc, argv);
+
+  dr &= (0b111); //this is a hack, ask Shahwaiz about it.
+
+  
+  //printf("%u\n", dr);
+
+  std::cout << nNodes << std::endl;
+  /*
+  std::cout << UintegerValue(dr) << std::endl;
+  std::cout << UintegerValue(nNodes) << std::endl;*/
+  
+
 
   /*
     Values to be added to cmd:
@@ -107,15 +129,37 @@ int main (int argc, char *argv[])
   allNodes.Add (endDeviceNodes);
   allNodes.Add (gatewayNodes);
 
+ 
+  
+  // new position allocator, where nodes are randomly placed in a disk of discradius size.
+  double m_discRadius = 6100.0;
+
+  MobilityHelper edMobility;
+  edMobility.SetPositionAllocator ("ns3::UniformDiscPositionAllocator",
+                                    "X", DoubleValue (0.0),
+                                    "Y", DoubleValue (0.0),
+                                    "rho", DoubleValue (m_discRadius));
+  edMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  edMobility.Install (endDeviceNodes);
+
+  MobilityHelper gwMobility;
+  Ptr<ListPositionAllocator> nodePositionList = CreateObject<ListPositionAllocator> ();
+  nodePositionList->Add (Vector (0.0, 0.0, 0.0));  // gateway
+  gwMobility.SetPositionAllocator (nodePositionList);
+  gwMobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  gwMobility.Install (gatewayNodes);
+
+  //MobilityHelper mobility;
+  //Ptr<ListPositionAllocator> nodePositionList = CreateObject<ListPositionAllocator> ();
+
+  // old position allocator, which looked something like:
   //    e       e
   //
   //        g
   //
   //    e       e
-  MobilityHelper mobility;
-  Ptr<ListPositionAllocator> nodePositionList = CreateObject<ListPositionAllocator> ();
-  
-  for(uint32_t i = 0; i < nNodes/4 + 1; i++){
+
+  /*for(uint32_t i = 0; i < nNodes/4 + 1; i++){
     if(i == nNodes/4){
       if(i % nNodes/4 < 1) {
         nodePositionList->Add (Vector ( 5.0*(i+1),  5.0*(i+1), 0.0));
@@ -141,7 +185,7 @@ int main (int argc, char *argv[])
   nodePositionList->Add (Vector (0.0, 0.0, 0.0));  // gateway
   mobility.SetPositionAllocator (nodePositionList);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-  mobility.Install (allNodes);
+  mobility.Install (allNodes);*/
 
   LoRaWANHelper lorawanHelper;
 
@@ -155,7 +199,7 @@ int main (int argc, char *argv[])
   lorawanHelper.SetDeviceType (LORAWAN_DT_GATEWAY);
   NetDeviceContainer lorawanGWDevices = lorawanHelper.Install (gatewayNodes);
 
-  lorawanHelper.EnablePcapAll ("myfirst", false);
+  //lorawanHelper.EnablePcapAll ("myfirst", false); //not using PCAPs for now
   
   // Trace state changes in the phy
   //dev0->GetPhy ()->TraceConnect ("TrxState", std::string ("phy0"), MakeCallback (&StateChangeNotification));
@@ -171,12 +215,27 @@ int main (int argc, char *argv[])
   packetSocket.Install (gatewayNodes);
 
   LoRaWANGatewayHelper gatewayhelper;
+  
+
+  gatewayhelper.SetAttribute ("DefaultClassBDataRateIndex", UintegerValue (dr));
+
   //leaving attributes set static for now
   ApplicationContainer gatewayApps = gatewayhelper.Install (gatewayNodes);
 
   LoRaWANEndDeviceHelper enddevicehelper;
+  
+  enddevicehelper.SetAttribute ("DataRateIndex", UintegerValue (dr));
+  enddevicehelper.SetAttribute ("ClassBDataRateIndex", UintegerValue (dr));
+
   //leaving attributes set to default for now
   ApplicationContainer enddeviceApps = enddevicehelper.Install (endDeviceNodes);
+  
+  /*for (uint8_t i = 0; i < enddeviceApps.GetN(); i++) { 
+     enddeviceApps.Get(i)->SetAttribute ("ClassBDataRateIndex", UintegerValue (4));
+     enddeviceApps.Get(i)->SetAttribute ("DataRateIndex", UintegerValue (4));
+   }*/
+ 
+  
 
   //run for a day
   gatewayApps.Start (Seconds (0.0));
@@ -189,6 +248,13 @@ int main (int argc, char *argv[])
 
   Ptr<Socket> recvSink = SetupPacketReceive (gatewayNodes.Get (0));
 
+
+  for(uint8_t i=0; i<20; i++){
+    Time t = Seconds (i*(86400.0/2000));
+    Simulator::Schedule (t, &PrintTime, i*5);
+  }
+ 
+
   Simulator::Stop (Seconds (86400.0));
   //Simulator::Stop (Years (1.0));
 
@@ -196,7 +262,7 @@ int main (int argc, char *argv[])
   //std::cout << "Going to start running!" << std::endl;
 
    /*for (uint8_t i = 0; i < enddeviceApps.GetN(); i++) { 
-    LoRaWANEndDeviceApplication e = (LoRaWANEndDeviceApplication) enddeviceApps.Get(i)->PrintFinalDetails();
+     enddeviceApps.Get(i)->;
    }*/
   
   std::cout << "RESULTS START HERE" << std::endl;

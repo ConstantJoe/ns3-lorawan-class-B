@@ -49,7 +49,8 @@ namespace ns3 {
 
   Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
 
-  LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_ClassBdownstreamRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0), m_numberOfBeacons(0) {}
+  //set m_generateDataDown and m_generateClassBDataDown to generate Class A dl data and Class B dl data w/ beacons respectively
+  LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_ClassBdownstreamRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(false), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0), m_numberOfBeacons(0) {}
 
   TypeId
   LoRaWANNetworkServer::GetTypeId (void)
@@ -199,6 +200,7 @@ LoRaWANNetworkServer::InitEndDeviceInfo (Ipv4Address ipv4DevAddr)
   info.m_deviceAddress = ipv4DevAddr;
   info.m_rx1DROffset = 0; // default
   info.m_setAck = false;
+  info.m_ClassBDataRateIndex = m_defaultClassBDataRateIndex;
 
   if(m_generateClassBDataDown){
     info.m_ClassBPingSlots = std::pow(2.0, 7 - info.m_ClassBPingPeriodicity); // number of ping slots is based on ping periodicity, and is always a power of two.
@@ -795,6 +797,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
     
   */
+  NS_LOG_FUNCTION (this << " attempt to send beacon at" << Simulator::Now ().GetSeconds () );
   NS_LOG_FUNCTION (this);
 
   //clear old Class B ping slot queues
@@ -1238,6 +1241,14 @@ LoRaWANNetworkServer::getRelativeGPSTime(uint64_t secondsPassed)
 void
 LoRaWANNetworkServer::AssignInitialGateway(Ptr<LoRaWANGatewayApplication> gw)
 {
+  //remember this particular gateway
+   if( m_gateways.find(gw) == m_gateways.end() ){
+    m_gateways.insert(gw);
+    }
+    
+    m_defaultClassBDataRateIndex = gw->GetDefaultClassBDataRateIndex();
+    //std::cout << "Set b dr to " << m_defaultClassBDataRateIndex << std::endl;
+
     for (NodeList::Iterator it = NodeList::Begin (); it != NodeList::End (); ++it)
     {
       Ptr<Node> nodePtr(*it);
@@ -1296,6 +1307,10 @@ LoRaWANGatewayApplication::GetTypeId (void)
   .AddTraceSource ("Tx", "A new packet is created and is sent",
             MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
             "ns3::Packet::TracedCallback")
+  .AddAttribute ("DefaultClassBDataRateIndex", "The default DR of ping slot sends",
+     UintegerValue (5),
+     MakeUintegerAccessor (&LoRaWANGatewayApplication::GetDefaultClassBDataRateIndex, &LoRaWANGatewayApplication::SetDefaultClassBDataRateIndex),
+     MakeUintegerChecker<uint8_t> (0, LoRaWAN::m_supportedDataRates.size ()))
   ;
   return tid;
 }
@@ -1627,6 +1642,24 @@ LoRaWANGatewayApplication::PrintFinalDetails()
    Ptr<LoRaWANNetDevice> device = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
    device->PrintFinalDetails();
 }*/
+
+uint8_t
+LoRaWANGatewayApplication::GetDefaultClassBDataRateIndex (void) const
+{
+  return m_defaultClassBDataRateIndex;
+}
+
+void
+LoRaWANGatewayApplication::SetDefaultClassBDataRateIndex (uint8_t index)
+{
+  NS_LOG_FUNCTION (this << index);
+
+  if (index <= LoRaWAN::m_supportedDataRates.size () - 1)
+    m_defaultClassBDataRateIndex = index;
+  else
+    NS_LOG_ERROR (this << " " << index << " is an invalid data rate index");
+}
+
 } // Namespace ns3
 
 

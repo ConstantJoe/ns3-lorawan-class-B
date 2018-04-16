@@ -69,9 +69,14 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
     .AddConstructor<LoRaWANEndDeviceApplication> ()
     .AddAttribute ("DataRateIndex",
                    "DataRate index used for US transmissions of this end device.",
-                   UintegerValue (0), // default data rate is SF12
+                   UintegerValue (5), // default data rate is SF12
                    MakeUintegerAccessor (&LoRaWANEndDeviceApplication::GetDataRateIndex, &LoRaWANEndDeviceApplication::SetDataRateIndex),
                    MakeUintegerChecker<uint16_t> (0, LoRaWAN::m_supportedDataRates.size ()))
+    .AddAttribute ("ClassBDataRateIndex",
+                   "DataRate index used for Class B receives of this end device.",
+                   UintegerValue (5), // default data rate is SF12
+                   MakeUintegerAccessor (&LoRaWANEndDeviceApplication::GetClassBDataRateIndex, &LoRaWANEndDeviceApplication::SetClassBDataRateIndex),
+                   MakeUintegerChecker<uint8_t> (0, LoRaWAN::m_supportedDataRates.size ()))
     .AddAttribute ("PacketSize", "The size of packets sent in on state",
                    UintegerValue (21),
                    MakeUintegerAccessor (&LoRaWANEndDeviceApplication::m_pktSize),
@@ -87,11 +92,11 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_channelRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("UpstreamIAT", "A RandomVariableStream used to pick the interval between sends from this device.",
-                   StringValue ("ns3::ConstantRandomVariable[Constant=900.0]"),
+                   StringValue ("ns3::ConstantRandomVariable[Constant=600.0]"),
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_upstreamIATRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("UpstreamSend", "A RandomVariableStream used to pick the time between subsequent US transmissions from this end device.",
-                   StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=900.0]"),
+                   StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=600.0]"),
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_upstreamSendIATRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("MaxBytes",
@@ -122,10 +127,10 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntDown (0),
     m_setAck (false),
     m_totalRx (0),
-    m_isClassB (true),
+    m_isClassB (false), //set to true to enable class B
     m_ClassBPingPeriodicity (6), 
     m_ClassBChannelIndex(7), 
-    m_ClassBDataRateIndex(3), 
+    /*m_ClassBDataRateIndex(5),*/ 
     m_ClassBCodeRateIndex(1),
     m_ClassBfcntDown(0),
     m_ClassBfcntBeacon(0),
@@ -172,6 +177,23 @@ LoRaWANEndDeviceApplication::SetDataRateIndex (uint32_t index)
     NS_LOG_ERROR (this << " " << index << " is an invalid data rate index");
 }
 
+uint8_t
+LoRaWANEndDeviceApplication::GetClassBDataRateIndex (void) const
+{
+  return m_ClassBDataRateIndex;
+}
+
+void
+LoRaWANEndDeviceApplication::SetClassBDataRateIndex (uint8_t index)
+{
+  NS_LOG_FUNCTION (this << index);
+
+  if (index <= LoRaWAN::m_supportedDataRates.size () - 1)
+    m_ClassBDataRateIndex = index;
+  else
+    NS_LOG_ERROR (this << " " << index << " is an invalid data rate index");
+}
+
 Ptr<Socket>
 LoRaWANEndDeviceApplication::GetSocket (void) const
 {
@@ -205,6 +227,9 @@ LoRaWANEndDeviceApplication::DoDispose (void)
 void LoRaWANEndDeviceApplication::StartApplication () // Called at time specified by Start
 {
   NS_LOG_FUNCTION (this);
+
+  //printf("ed b dr set to %u\n", GetClassBDataRateIndex());
+  //std::cout << "ed b dr set to " <<  << std::endl;
 
   // Create the socket if not already
   if (!m_socket)
@@ -255,6 +280,8 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   //m_txEvent = Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::SendPacket, this);
   
   //Once every 900s it chooses a time in the next 900s interval to send a packet, and schedules the initial event again
+
+  // Comment out this bit for No Class A transmissions
   Time nextTime (Seconds (this->m_upstreamIATRandomVariable->GetValue ()));
   NS_LOG_LOGIC (this << " scheduleNextTx nextTime = " << nextTime);
   m_sendEvent = Simulator::Schedule (nextTime,
@@ -531,6 +558,7 @@ void LoRaWANEndDeviceApplication::ConnectionFailed (Ptr<Socket> socket)
 void
 LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
 {
+  NS_LOG_FUNCTION (this << " attempt to receive beacon at" << Simulator::Now ().GetSeconds () );
   //call method in MAC layer indicating time for Class B beacon
 
   //TODO: is this direct call bad practice?

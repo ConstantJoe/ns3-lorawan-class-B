@@ -76,6 +76,9 @@ public:
   uint32_t GetDataRateIndex (void) const;
   void SetDataRateIndex (uint32_t index);
 
+  uint8_t GetClassBDataRateIndex (void) const;
+  void SetClassBDataRateIndex (uint8_t index);
+
   /**
    * \brief Return a pointer to associated socket.
    * \return pointer to associated socket

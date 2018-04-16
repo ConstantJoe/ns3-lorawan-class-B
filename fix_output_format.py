@@ -1,10 +1,16 @@
+import sys
+
 netdevice = []
 enddevice = []
 ns = []
-with open('err.txt', 'r') as f:
+with open(sys.argv[1], 'r') as f:
 	# skip the first bit
-	while (f.readline() != "RESULTS START HERE\n"):
-		pass
+	line = f.readline()
+	while (line != "RESULTS START HERE\n"):
+		if line == "":
+			print("Err: no results in this file.")
+			sys.exit()
+		line = f.readline()
 
 	numNodes = f.readline()
 

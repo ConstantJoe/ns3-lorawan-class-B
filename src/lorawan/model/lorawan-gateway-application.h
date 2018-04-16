@@ -87,7 +87,7 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
   m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBdownstreamTimerSchedule(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(0), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
+  m_ClassBdownstreamTimer(), m_ClassBdownstreamTimerSchedule(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(5), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;
@@ -182,6 +182,8 @@ public:
 
 
   void PrintFinalDetails();
+
+  uint8_t m_defaultClassBDataRateIndex;
   //////////////////////////////////
 
 private:
@@ -216,6 +218,8 @@ private:
     uint64_t    m_simulationStartTime;
 
     uint32_t  m_numberOfBeacons;
+
+
 };
 
 
@@ -285,6 +289,9 @@ public:
 
   void PrintFinalDetails();
 
+  uint8_t GetDefaultClassBDataRateIndex (void) const;
+  void SetDefaultClassBDataRateIndex (uint8_t index);
+
 protected:
   virtual void DoInitialize (void);
   virtual void DoDispose (void);
@@ -320,7 +327,7 @@ private:
 
   Ptr<LoRaWANNetworkServer> m_lorawanNSPtr; //!< Pointer to LoRaWANNetworkServer singleton
 
-
+  uint8_t m_defaultClassBDataRateIndex;
 
 private:
   /**
