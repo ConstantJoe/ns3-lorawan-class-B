@@ -136,7 +136,6 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_ClassBfcntBeacon(0),
     m_fcntRX1(0),
     m_fcntRX2(0),
-    m_failToSendDCLimit(0), 
     m_attemptedThroughput(0)
 
 {

@@ -43,7 +43,7 @@
 
 #include "ns3/traced-value.h"
 #include "ns3/trace-source-accessor.h"
-#include "ns3/lorawan-enddevice-application.h"
+//#include "ns3/lorawan-enddevice-application.h"
 
 #include <iostream>
 
@@ -181,7 +181,7 @@ int main (int argc, char *argv[])
       nodePositionList->Add (Vector (-5.0*(i+1), -5.0*(i+1), 0.0));  // end device4
     }
   }
-  
+  l
   nodePositionList->Add (Vector (0.0, 0.0, 0.0));  // gateway
   mobility.SetPositionAllocator (nodePositionList);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");

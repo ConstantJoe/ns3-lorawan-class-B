@@ -138,9 +138,7 @@ struct LoRaWANDataIndicationParams
   uint8_t m_dataRateIndex;		//!< Data rate index of received transmission
   uint8_t m_codeRate;			//!< Code rate of received transmission
 
-  ////////////////////////////////
   uint8_t m_preambleLength;
-  ////////////////////////////////
 
   LoRaWANMsgType m_msgType; 		//!< Message Type
   Ipv4Address m_endDeviceAddress; 	//!< End Device Address
@@ -363,11 +361,9 @@ protected:
   
 private:
 
-  ///////////////////////////////////
   uint8_t m_ClassBChannelIndex;
   uint8_t m_ClassBDataRateIndex;
   uint8_t m_ClassBCodeRateIndex;
-  ///////////////////////////////////
 
   /**
    * The trace source fired when packets are considered as successfully sent

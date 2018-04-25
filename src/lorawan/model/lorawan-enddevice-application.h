@@ -33,7 +33,7 @@
 #include "ns3/data-rate.h"
 #include "ns3/traced-callback.h"
 
-#include "aes.h"
+#include "ns3/aes.h"
 
 namespace ns3 {
 
@@ -155,7 +155,6 @@ private:
 
   uint32_t    m_fcntRX1;
   uint32_t    m_fcntRX2;
-  uint32_t    m_failToSendDCLimit;
   uint32_t    m_attemptedThroughput;
 
   uint32_t    m_devAddr;

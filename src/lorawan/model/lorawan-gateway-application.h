@@ -31,7 +31,7 @@
 #include "ns3/random-variable-stream.h"
 
 #include "ns3/vector.h"
-#include "aes.h"
+#include "ns3/aes.h"
 
 #include "ns3/lorawan.h"
 #include <unordered_map>

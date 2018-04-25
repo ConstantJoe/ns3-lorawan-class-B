@@ -185,7 +185,6 @@ LoRaWANNetworkServer::DoDispose (void)
   NS_LOG_FUNCTION (this);
   //std::cout << "Details from NS" << std::endl;
   PrintFinalDetails();
-  std::cout << std::endl;
 
   Object::DoDispose ();
 }
