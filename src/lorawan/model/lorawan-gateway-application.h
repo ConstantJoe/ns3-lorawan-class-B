@@ -184,11 +184,13 @@ public:
   void PrintFinalDetails();
 
   uint8_t m_defaultClassBDataRateIndex;
+
+  std::unordered_map <uint32_t, LoRaWANEndDeviceInfoNS> m_endDevices;
   //////////////////////////////////
 
 private:
   static Ptr<LoRaWANNetworkServer> m_ptr;
-  std::unordered_map <uint32_t, LoRaWANEndDeviceInfoNS> m_endDevices;
+  
   uint16_t m_pktSize;
   bool m_generateDataDown;
   bool m_confirmedData;
@@ -292,6 +294,11 @@ public:
   uint8_t GetDefaultClassBDataRateIndex (void) const;
   void SetDefaultClassBDataRateIndex (uint8_t index);
 
+  uint32_t        m_pingSlotAllocated[4096];
+  uint32_t        m_pingSlotUsed[4096];
+  uint32_t        m_pingSlotFailedToUseCollision[4096];
+  uint32_t        m_pingSlotFailedToUseDutyCycle[4096];
+
 protected:
   virtual void DoInitialize (void);
   virtual void DoDispose (void);
@@ -321,6 +328,8 @@ private:
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
 
   std::vector<uint32_t> m_pingSlots[4096]; //An array of vectors. The NS adds to each vector in the initial allocation, then the first request is sent in the ping slot. The others are not.  
+  
+  
 
   /// Traced Callback: transmitted packets.
   TracedCallback<Ptr<const Packet> > m_txTrace;

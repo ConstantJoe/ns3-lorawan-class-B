@@ -50,7 +50,7 @@ namespace ns3 {
   Ptr<LoRaWANNetworkServer> LoRaWANNetworkServer::m_ptr = NULL;
 
   //set m_generateDataDown and m_generateClassBDataDown to generate Class A dl data and Class B dl data w/ beacons respectively
-  LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(30), m_ClassBdownstreamIATRandomVariable(nullptr), m_ClassBdownstreamRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(false), m_ClassBBeaconChannelIndex(0), m_ClassBBeaconDataRateIndex(0), m_numberOfBeacons(0) {}
+  LoRaWANNetworkServer::LoRaWANNetworkServer () : m_endDevices(), m_pktSize(0), m_generateDataDown(false), m_confirmedData(false), m_endDevicesPopulated(false), m_downstreamIATRandomVariable(nullptr), m_nrRW1Sent(0), m_nrRW2Sent(0), m_nrRW1Missed(0), m_nrRW2Missed(0), m_ClassBpktSize(21), m_ClassBdownstreamIATRandomVariable(nullptr), m_ClassBdownstreamRandomVariable(nullptr), m_beaconTimer(), m_gateways(), m_generateClassBDataDown(true), m_ClassBBeaconChannelIndex(7), m_ClassBBeaconDataRateIndex(3), m_numberOfBeacons(0) {}
 
   TypeId
   LoRaWANNetworkServer::GetTypeId (void)
@@ -694,7 +694,7 @@ LoRaWANNetworkServer::GetConfirmedDataDown (void) const
 void
 LoRaWANNetworkServer::ClassBScheduleExpiry(uint32_t deviceAddr)
 {
-    auto it = m_endDevices.find (deviceAddr);
+  auto it = m_endDevices.find (deviceAddr);
     if (it == m_endDevices.end ()) { // end device not found
       NS_LOG_ERROR (this << " Could not find device info struct in m_endDevices for dev addr " << deviceAddr);
       return;
@@ -708,15 +708,15 @@ LoRaWANNetworkServer::ClassBScheduleExpiry(uint32_t deviceAddr)
     //Schedule this function to be called again in (900) seconds
     Time t2 = Seconds (this->m_ClassBdownstreamIATRandomVariable->GetValue ());
     it->second.m_ClassBdownstreamTimerSchedule = Simulator::Schedule (t2, &LoRaWANNetworkServer::ClassBScheduleExpiry, this, deviceAddr);
-}
+  }
 // adding a stream of data specifically to be sent as Class B downlink traffic.
 // based on DSTimerExpired 
-void
-LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
-{
-  NS_LOG_FUNCTION (this << deviceAddr);
+  void
+  LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
+  {
+    NS_LOG_FUNCTION (this << deviceAddr);
 
-  auto it = m_endDevices.find (deviceAddr);
+    auto it = m_endDevices.find (deviceAddr);
   if (it == m_endDevices.end ()) { // end device not found
     NS_LOG_ERROR (this << " Could not find device info struct in m_endDevices for dev addr " << deviceAddr);
     return;
@@ -900,7 +900,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
   //schedule ping slots for all devices
     for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
-    
+
       //d->second.m_ClassBbeaconsSent = d->second.m_ClassBbeaconsSent + 1;
     /*
     period  = (2^32)/slots
@@ -959,7 +959,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
 
     //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
     //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
-
+    //printf("start ping slots\r\n");
     NS_LOG_DEBUG("Scheduling ping slots for device" << deviceAddr.Get ());
     for(uint i=0;i< d->second.m_ClassBPingSlots; i++){
       uint64_t pingTime = beacon_reserved + (O + period*i) * slotLength; // Ping slot time is beacon_reserved + (pingOffset + N*pingPeriod) * slotLength
@@ -971,10 +971,10 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
       }*/
       auto gw = d->second.m_lastGWs.cbegin();
       NS_LOG_DEBUG("get gw"); 
-      (*gw)->RequestPingSlot(O + period*i, dAddr); //problem is that gw is currently NULL.
+      (*gw)->RequestPingSlot(O + period*i, dAddr); 
       NS_LOG_DEBUG("requested ping slot");
       Time ping = MilliSeconds(pingTime); 
-       NS_LOG_DEBUG("gw : ping slot for device " << dAddr << "is at " << Simulator::Now() + ping);
+      NS_LOG_DEBUG("gw : ping slot for device " << dAddr << "is at " << Simulator::Now() + ping);
       Simulator::Schedule (ping, &LoRaWANNetworkServer::ClassBPingSlot, this, dAddr, O + period*i);
     }
 
@@ -999,151 +999,99 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
 
   auto gw = it->second.m_lastGWs.cbegin(); 
 
-  if((*gw)->IsTopOfPingSlotQueue(pingTime, devAddr))
-  {  
+  
 
   // Figure out which DS packet to send
-    LoRaWANNSDSQueueElement elementToSend;
+  LoRaWANNSDSQueueElement elementToSend;
     //bool deleteQueueElement = false;
-    if (it->second.m_ClassBdownstreamQueue.size() > 0) 
-    {
+  if (it->second.m_ClassBdownstreamQueue.size() > 0) 
+  {
       LoRaWANNSDSQueueElement* element = it->second.m_ClassBdownstreamQueue.front ();
 
-    // Bookkeeping for Confirmed packets:
-      /*if (element->m_downstreamMsgType == LORAWAN_CONFIRMED_DATA_DOWN) { 
-      // Count number of retransmissions:
-        if (element->m_isRetransmission) {
-          it->second.m_nDSRetransmission++;
-        }*/
-
-      // Update for next transmission:
-     // element->m_downstreamTransmissionsRemaining--; // decrement
-      //element->m_isRetransmission = true;
-    //}
-
-    // Should we delete pending packet after transmission?
-    //if (element->m_downstreamMsgType != LORAWAN_CONFIRMED_DATA_DOWN) { // delete the queueelement object after the send operation
-   //   deleteQueueElement = true;
-   // } else {
-    //  if (element->m_downstreamTransmissionsRemaining == 0) {// in case of CONFIRMED_DATA_DOWN, delete the pending transmission when the number of remaining transmissions has reached 1
-    //    deleteQueueElement = true;
-
-        // LOG that network server will delete DS packet from queue
       m_dsMsgDroppedTrace (devAddr, 0, element->m_downstreamMsgType, element->m_downstreamPacket);
-    //  }
-    //}
 
       elementToSend.m_downstreamPacket = element->m_downstreamPacket;
       elementToSend.m_downstreamMsgType = element->m_downstreamMsgType;
       elementToSend.m_downstreamFramePort = element->m_downstreamFramePort;
       elementToSend.m_downstreamTransmissionsRemaining = element->m_downstreamTransmissionsRemaining;
-    }
-    else {
-      NS_LOG_INFO (this << " No downstream packet to send to: " << devAddr << ". Aborting DS transmission");
-      return;
-    } 
-
-  /*else {
-    if (!it->second.m_setAck) {
-      // Not really a warning as there is just no need to send a DS packet (i.e. no data and no Ack)
-      NS_LOG_INFO (this << " No downstream packet found nor is ack bit set for dev addr " << deviceAddr << ". Aborting DS transmission");
-      return;
-    } else {
-      NS_LOG_DEBUG (this << " Generating empty downstream packet to send Ack for dev addr " << deviceAddr);
-      elementToSend.m_downstreamPacket = Create<Packet> (0); // create empty packet so that we can send the Ack
-      elementToSend.m_downstreamMsgType = LORAWAN_UNCONFIRMED_DATA_DOWN; // should also set msg type
-      elementToSend.m_downstreamFramePort = 0; // empty packet, so don't send frame port
-      elementToSend.m_downstreamTransmissionsRemaining = 0;
-    }
-  }*/
-
-  // LOG DS msg transmission
-  // TODO: make new log function for this
-  //uint8_t rwNumber = RW1 ? 1 : 2;
-  //m_dsMsgTransmittedTrace (deviceAddr, elementToSend.m_downstreamTransmissionsRemaining, elementToSend.m_downstreamMsgType, elementToSend.m_downstreamPacket, rwNumber);
-
-  // Make a copy here, this is u
-  Ptr<Packet> p = elementToSend.m_downstreamPacket->Copy (); // make a copy, so that we don't alter elementToSend.m_downstreamPacket as we might re-use this packet later (e.g. retransmission)
-
-  // Construct Frame Header:
-  LoRaWANFrameHeader fhdr;
-  fhdr.setDevAddr (Ipv4Address (devAddr));
-  fhdr.setAck (it->second.m_setAck);
-  fhdr.setFramePending (it->second.m_framePending);
-  fhdr.setFrameCounter (it->second.m_fCntDown++); //TODO: maybe count these seperately?
-  if (elementToSend.m_downstreamFramePort > 0)
-    fhdr.setFramePort (elementToSend.m_downstreamFramePort);
-
-  p->AddHeader (fhdr);
-
-  // Add Phy Packet tag to specify channel, data rate and code rate:
-  uint8_t dsChannelIndex = it->second.m_ClassBChannelIndex; //TODO: ensure the defaults of these are set properly 
-  uint8_t dsDataRateIndex = it->second.m_ClassBDataRateIndex; //TODO: ensure the defaults of these are set properly 
-  uint8_t dsCodeRate = it->second.m_ClassBCodeRateIndex;
-
-  /*if (RW1) {
-    dsChannelIndex = it->second.m_lastChannelIndex;
-    dsDataRateIndex = LoRaWAN::GetRX1DataRateIndex (it->second.m_lastDataRateIndex, it->second.m_rx1DROffset);
-  } else if (RW2) {
-    dsChannelIndex = LoRaWAN::m_RW2ChannelIndex;
-    dsDataRateIndex = LoRaWAN::m_RW2DataRateIndex;
-  } else {
-    NS_FATAL_ERROR (this << " Either RW1 or RW2 should be true");
-    return;
-  }*/
-  uint8_t preambleLength = 8; //TODO: move to better place
-  LoRaWANPhyParamsTag phyParamsTag;
-  phyParamsTag.SetChannelIndex (dsChannelIndex);
-  phyParamsTag.SetDataRateIndex (dsDataRateIndex);
-  phyParamsTag.SetCodeRate (dsCodeRate); //TODO: ensure the defaults of these are set properly  //this is wrong
-  phyParamsTag.SetPreambleLength (preambleLength);
-  p->AddPacketTag (phyParamsTag);
-
-  // Set Msg type
-  LoRaWANMsgTypeTag msgTypeTag;
-  msgTypeTag.SetMsgType (elementToSend.m_downstreamMsgType);
-  p->AddPacketTag (msgTypeTag);
-
-  // Update DS Packet counters:
-  it->second.m_nClassBPacketsSent += 1; 
-  /*if (RW1) {
-    m_nrRW1Sent++;
-    it->second.m_nDSPacketsSentRW1 += 1;
-  } else if (RW2) {
-    it->second.m_nDSPacketsSentRW2 += 1;
-    m_nrRW2Sent++;
   }
-  if (it->second.m_setAck)
-    it->second.m_nDSAcks += 1;*/
+  else {
+      NS_LOG_INFO (this << " No downstream packet to send to: " << devAddr << ". Aborting DS transmission");
+      //printf("no packet to send this time\r\n");
+      return;
+  } 
 
-  // Store gatewayPtr as last DS GW:
-  //it->second.m_lastDSGW = gatewayPtr;
+  if((*gw)->IsTopOfPingSlotQueue(pingTime, devAddr))
+  {   
+      // Add Phy Packet tag to specify channel, data rate and code rate:
+      uint8_t dsChannelIndex = it->second.m_ClassBChannelIndex; 
+      uint8_t dsDataRateIndex = it->second.m_ClassBDataRateIndex;
+      uint8_t dsCodeRate = it->second.m_ClassBCodeRateIndex;
 
-  // Ask gateway application to send the DS packet:
-  NS_LOG_DEBUG("Sending a downlink ping, from " << (*gw)->GetNode ()->GetDevice (0)->GetAddress () << " to " << Ipv4Address (devAddr) << "at time " << Simulator::Now() );
-  (*gw)->SendDSPacket (p);
-  //NS_LOG_DEBUG (this << " Sent DS Packet to device addr " << devAddr << " via GW #" << gw->GetNode()->GetId() << " in Class B Downlink");
-  //TODO: proper log here.
+      //check if the packet can actually be sent right now
+      if( !(*gw)->CanSendImmediatelyOnChannel (dsChannelIndex, dsDataRateIndex) )
+      {
+          //log err
+          NS_LOG_INFO (this << " Ping slot can't be used because of duty cycle limits. Potential packet to " << devAddr << " not sent. Aborting DS transmission");
+          (*gw)->m_pingSlotFailedToUseDutyCycle[pingTime]++;
+          //printf("duty cycle limit\r\n");
+          return;
+      }
 
-  // Reset data structures
-  //it->second.m_setAck = false; // we only sent an Ack once, see Note on page 75 of LoRaWAN std
+      //m_pingSlotFailedToUseDutyCycle
 
-  // For some cases (see deleteQueueElement bool), remove the pending DS packet here
-  //if (deleteQueueElement) {
-  // this->DeleteFirstDSQueueElement (deviceAddr);
-  //}
-  // delete the element
-  // TODO: maybe this should be done after it is sure that the sending of a packet during the ping slot was a success? The transceiver could be busy. 
-  LoRaWANNSDSQueueElement* ptr = it->second.m_ClassBdownstreamQueue.front ();
-  delete ptr;
-  it->second.m_ClassBdownstreamQueue.pop_front ();
+      Ptr<Packet> p = elementToSend.m_downstreamPacket->Copy (); // make a copy, so that we don't alter elementToSend.m_downstreamPacket as we might re-use this packet later (e.g. retransmission)
+
+      // Construct Frame Header:
+      LoRaWANFrameHeader fhdr;
+      fhdr.setDevAddr (Ipv4Address (devAddr));
+      fhdr.setAck (it->second.m_setAck);
+      fhdr.setFramePending (it->second.m_framePending);
+      fhdr.setFrameCounter (it->second.m_fCntDown++); //TODO: maybe count these seperately?
+      if (elementToSend.m_downstreamFramePort > 0)
+        fhdr.setFramePort (elementToSend.m_downstreamFramePort);
+
+      p->AddHeader (fhdr);
+
+      
+
+      uint8_t preambleLength = 8; //TODO: move to better place
+      LoRaWANPhyParamsTag phyParamsTag;
+      phyParamsTag.SetChannelIndex (dsChannelIndex);
+      phyParamsTag.SetDataRateIndex (dsDataRateIndex);
+      phyParamsTag.SetCodeRate (dsCodeRate); //TODO: ensure the defaults of these are set properly  //this is wrong
+      phyParamsTag.SetPreambleLength (preambleLength);
+      p->AddPacketTag (phyParamsTag);
+
+      // Set Msg type
+      LoRaWANMsgTypeTag msgTypeTag;
+      msgTypeTag.SetMsgType (elementToSend.m_downstreamMsgType);
+      p->AddPacketTag (msgTypeTag);
+
+      // Update DS Packet counters:
+      it->second.m_nClassBPacketsSent += 1; 
+
+
+      // Ask gateway application to send the DS packet:
+      NS_LOG_DEBUG("Sending a downlink ping, from " << (*gw)->GetNode ()->GetDevice (0)->GetAddress () << " to " << Ipv4Address (devAddr) << "at time " << Simulator::Now() );
+      (*gw)->m_pingSlotUsed[pingTime]++;
+      //printf("sending a ping slot\r\n");
+      (*gw)->SendDSPacket (p);
+
+      LoRaWANNSDSQueueElement* ptr = it->second.m_ClassBdownstreamQueue.front ();
+      delete ptr;
+      it->second.m_ClassBdownstreamQueue.pop_front ();
+  }
+  else
+  {
+      //log err
+      NS_LOG_INFO (this << " Ping slot overlap. Potential packet to " << devAddr << " not sent. Aborting DS transmission");
+      //printf("ping slot overlap\r\n");
+      return;
 }
-else
-{
-    //log err
-  NS_LOG_INFO (this << " Ping slot overlap. Potential packet to " << devAddr << " not sent. Aborting DS transmission");
-  return;
-}
+
+
+
 
 
 
@@ -1242,27 +1190,27 @@ void
 LoRaWANNetworkServer::AssignInitialGateway(Ptr<LoRaWANGatewayApplication> gw)
 {
   //remember this particular gateway
-   if( m_gateways.find(gw) == m_gateways.end() ){
-    m_gateways.insert(gw);
-    }
-    
-    m_defaultClassBDataRateIndex = gw->GetDefaultClassBDataRateIndex();
+ if( m_gateways.find(gw) == m_gateways.end() ){
+  m_gateways.insert(gw);
+}
+
+m_defaultClassBDataRateIndex = gw->GetDefaultClassBDataRateIndex();
     //std::cout << "Set b dr to " << m_defaultClassBDataRateIndex << std::endl;
 
-    for (NodeList::Iterator it = NodeList::Begin (); it != NodeList::End (); ++it)
-    {
-      Ptr<Node> nodePtr(*it);
-      Address devAddr = nodePtr->GetDevice (0)->GetAddress();
-      if (Ipv4Address::IsMatchingType (devAddr)) {
-        Ipv4Address ipv4DevAddr = Ipv4Address::ConvertFrom (devAddr);
+for (NodeList::Iterator it = NodeList::Begin (); it != NodeList::End (); ++it)
+{
+  Ptr<Node> nodePtr(*it);
+  Address devAddr = nodePtr->GetDevice (0)->GetAddress();
+  if (Ipv4Address::IsMatchingType (devAddr)) {
+    Ipv4Address ipv4DevAddr = Ipv4Address::ConvertFrom (devAddr);
         if (ipv4DevAddr.IsEqual (Ipv4Address(0xffffffff))) { // gateway?
           continue;
         }
 
       // Construct LoRaWANEndDeviceInfoNS object
       //LoRaWANEndDeviceInfoNS info = InitEndDeviceInfo (ipv4DevAddr);
-      uint32_t key = ipv4DevAddr.Get ();
-      if(m_endDevices[key].m_lastGWs.size() == 0){
+        uint32_t key = ipv4DevAddr.Get ();
+        if(m_endDevices[key].m_lastGWs.size() == 0){
         m_endDevices[key].m_lastGWs.push_back(gw); // something like this  
       }
       
@@ -1273,18 +1221,12 @@ LoRaWANNetworkServer::AssignInitialGateway(Ptr<LoRaWANGatewayApplication> gw)
 void
 LoRaWANNetworkServer::PrintFinalDetails ()
 {
-
-  /*for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
-    //(*gw)->ClearPingSlotQueues();
-    (*gw)->PrintFinalDetails();
-  } */
-
   for (auto d = m_endDevices.cbegin(); d != m_endDevices.cend(); d++) {
     //TODO: missing fail to send (dc limit) and fail to receive (busy during state change to rx)
     std::cout << d->second.m_deviceAddress.Get() << "\t" <<  d->second.m_nDSPacketsGenerated <<  
-      "\t" << d->second.m_nDSPacketsSent << "\t" << d->second.m_nDSPacketsSentRW1 << "\t" << d->second.m_nDSPacketsSentRW2 << 
-      "\t" << d->second.m_nDSRetransmission << "\t" << d->second.m_nDSAcks << "\t" << m_numberOfBeacons << 
-      "\t" << d->second.m_nClassBPacketsGenerated << "\t" << d->second.m_nClassBPacketsSent << "\t" << d->second.m_nUSPackets << std::endl;
+    "\t" << d->second.m_nDSPacketsSent << "\t" << d->second.m_nDSPacketsSentRW1 << "\t" << d->second.m_nDSPacketsSentRW2 << 
+    "\t" << d->second.m_nDSRetransmission << "\t" << d->second.m_nDSAcks << "\t" << m_numberOfBeacons << 
+    "\t" << d->second.m_nClassBPacketsGenerated << "\t" << d->second.m_nClassBPacketsSent << "\t" << d->second.m_nUSPackets << std::endl;
   }
   
 }
@@ -1295,6 +1237,11 @@ m_connected (false),
 m_totalRx (0)
 {
   NS_LOG_FUNCTION (this);
+  /*m_pingSlotUsed[4096] = {};
+  m_pingSlotFailedToUseCollision[4096] = {};
+  m_pingSlotFailedToUseDutyCycle[4096] = {};*/
+
+
 }
 
 TypeId
@@ -1305,12 +1252,12 @@ LoRaWANGatewayApplication::GetTypeId (void)
   .SetGroupName("Applications")
   .AddConstructor<LoRaWANGatewayApplication> ()
   .AddTraceSource ("Tx", "A new packet is created and is sent",
-            MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
-            "ns3::Packet::TracedCallback")
+    MakeTraceSourceAccessor (&LoRaWANGatewayApplication::m_txTrace),
+    "ns3::Packet::TracedCallback")
   .AddAttribute ("DefaultClassBDataRateIndex", "The default DR of ping slot sends",
-     UintegerValue (5),
-     MakeUintegerAccessor (&LoRaWANGatewayApplication::GetDefaultClassBDataRateIndex, &LoRaWANGatewayApplication::SetDefaultClassBDataRateIndex),
-     MakeUintegerChecker<uint8_t> (0, LoRaWAN::m_supportedDataRates.size ()))
+   UintegerValue (5),
+   MakeUintegerAccessor (&LoRaWANGatewayApplication::GetDefaultClassBDataRateIndex, &LoRaWANGatewayApplication::SetDefaultClassBDataRateIndex),
+   MakeUintegerChecker<uint8_t> (0, LoRaWAN::m_supportedDataRates.size ()))
   ;
   return tid;
 }
@@ -1336,6 +1283,7 @@ LoRaWANGatewayApplication::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
 
+  PrintFinalDetails();
   m_socket = 0;
   this->m_lorawanNSPtr = nullptr;
   // clear ref count in static member, as to destroy the LoRaWANNetworkServer object.
@@ -1610,6 +1558,7 @@ void LoRaWANGatewayApplication::HandleRead (Ptr<Socket> socket)
 void
 LoRaWANGatewayApplication::RequestPingSlot (uint64_t slot, uint32_t devAddr)
 {
+  m_pingSlotAllocated[slot]++;
   m_pingSlots[slot].push_back(devAddr);
 }
 
@@ -1618,30 +1567,48 @@ LoRaWANGatewayApplication::ClearPingSlotQueues ()
 {
   //TODO: magic numbers
   for(uint i=0; i<4096; i++){
+    //m_pingSlotUsed[i] += m_pingSlots[i].size();
     m_pingSlots[i].clear();  
   }
   
 }
 
+
+/*
+return true if there's nothing in the queue of any of the devices listed ahead of this one
+*/
 bool
 LoRaWANGatewayApplication::IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr)
 {
-  if(m_pingSlots[slot].at(0) == devAddr)
-  {
-    return true;
-  }
-  else 
-  {
-    return false;
-  }
+  bool ret = true;
+  for(int i=0; i < m_pingSlots[slot].size(); i++){
+    if(m_pingSlots[slot].at(i) == devAddr)
+    {
+      ret = true;
+      break;
+    } 
+    else 
+    {
+      uint32_t addr = m_pingSlots[slot].at(i);
+      if (this->m_lorawanNSPtr->m_endDevices.find (addr)->second.m_ClassBdownstreamQueue.size() > 0)
+      {
+        m_pingSlotFailedToUseCollision[slot]++;
+        ret = false;
+        break;
+      }
+    }
+  } 
+  return ret;
 }
 
-/*void
+void
 LoRaWANGatewayApplication::PrintFinalDetails()
 {
-   Ptr<LoRaWANNetDevice> device = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
-   device->PrintFinalDetails();
-}*/
+  std::cout << "GW" << std::endl;
+   for(uint32_t i=0; i<4096; i++) {
+    std::cout << m_pingSlotAllocated[i] << "\t" << m_pingSlotUsed[i] << "\t" << m_pingSlotFailedToUseCollision[i] << "\t" << m_pingSlotFailedToUseDutyCycle[i] << std::endl;
+   }
+}
 
 uint8_t
 LoRaWANGatewayApplication::GetDefaultClassBDataRateIndex (void) const

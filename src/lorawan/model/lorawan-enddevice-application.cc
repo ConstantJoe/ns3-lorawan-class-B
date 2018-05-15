@@ -61,6 +61,8 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
   const uint32_t channelRandomVariableDefaultMin = 0;
   const uint32_t channelRandomVariableDefaultMax = (LoRaWAN::m_supportedChannels.size () - 1) - 1; // additional -1 as not to use the 10% RDC channel as an upstream channel
   channelRandomVariableSS << "ns3::UniformRandomVariable[Min=" << channelRandomVariableDefaultMin << "|Max=" << channelRandomVariableDefaultMax << "]";
+  
+  NS_LOG_LOGIC("LoRaWANEndDeviceApplication::m_supportedChannels: " << LoRaWAN::m_supportedChannels.size ());
   NS_LOG_LOGIC("LoRaWANEndDeviceApplication::GetTypeId: " << channelRandomVariableSS.str());
 
   static TypeId tid = TypeId ("ns3::LoRaWANEndDeviceApplication")
@@ -127,7 +129,7 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntDown (0),
     m_setAck (false),
     m_totalRx (0),
-    m_isClassB (false), //set to true to enable class B
+    m_isClassB (true), //set to true to enable class B
     m_ClassBPingPeriodicity (6), 
     m_ClassBChannelIndex(7), 
     /*m_ClassBDataRateIndex(5),*/ 
