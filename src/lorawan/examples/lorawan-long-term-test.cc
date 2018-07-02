@@ -45,6 +45,8 @@
 #include "ns3/trace-source-accessor.h"
 //#include "ns3/lorawan-enddevice-application.h"
 
+#include <ns3/energy-module.h>
+
 #include <iostream>
 
 using namespace ns3;
@@ -129,7 +131,9 @@ int main (int argc, char *argv[])
   allNodes.Add (endDeviceNodes);
   allNodes.Add (gatewayNodes);
 
- 
+  // create energy source
+  LoRaEnergySourceHelper sourceHelper;
+  EnergySourceContainer energySources = sourceHelper.Install(endDeviceNodes);
   
   // new position allocator, where nodes are randomly placed in a disk of discradius size.
   double m_discRadius = 6100.0;
