@@ -28,7 +28,7 @@
 #include "ns3/nstime.h"
 #include "ns3/event-id.h"
 #include "ns3/traced-value.h"
-#include "lora-phy.h"
+#include "ns3/lorawan-phy.h"
 #include <ns3/traced-callback.h>
 
 namespace ns3 {
@@ -80,17 +80,19 @@ public:
   virtual double GetTotalEnergyConsumption (void) const;
 
   // Setter & getters for state power consumption.
-  double GetIdleCurrentA (void) const;
-  void SetIdleCurrentA (double IdleCurrentA);
+  double GetStandbyCurrentA (void) const;
+  void SetStandbyCurrentA (double standbyCurrentA);
   double GetRxCurrentA (void) const;
-  void SetRxCurrentA (double RxCurrentA);
+  void SetRxCurrentA (double rxCurrentA);
   double GetTxCurrentA (void) const;
   void SetTxCurrentA (double txCurrentA);
+  double GetSleepCurrentA (void) const;
+  void SetSleepCurrentA (double sleepCurrentA);
 
   /**
    * \returns Current state.
    */
-	LoRaPhy::State GetCurrentState (void) const;
+	LoRaWANPhyEnumeration GetCurrentState (void) const;
 
   /**
    * \brief Inherit from DeviceEnergyModel, not used
@@ -118,7 +120,7 @@ public:
   /**
    * \brief Change state of the LoRaRadioEnergyMode
    */
-  void ChangeLoRaState ( LoRaPhy::State newstate);
+  void ChangeLoRaState (LoRaWANPhyEnumeration oldstate, LoRaWANPhyEnumeration newstate);
 
 private:
   /**
@@ -139,7 +141,7 @@ private:
    * Sets current state. This function is private so that only the energy model
    * can change its own state.
    */
-  void SetLoRaRadioState (const LoRaPhy::State state);
+  void SetLoRaRadioState (const LoRaWANPhyEnumeration state);
 
 private:
   Ptr<EnergySource> m_source;
@@ -156,7 +158,7 @@ private:
   TracedCallback<std::string, std::string, bool, double, double, double> m_EnergyStateLogger;
 
   // State variables.
-	LoRaPhy::State m_currentState;  // current state the radio is in
+	LoRaWANPhyEnumeration m_currentState;  // current state the radio is in
   Time m_lastUpdateTime;                // time stamp of previous energy update
   double m_energyToDecrease;            // consumed energy of lastest LoRaRadioEnergyMode
   double m_remainingBatteryEnergy;      // remaining battery energy of the energy source attaching to the node

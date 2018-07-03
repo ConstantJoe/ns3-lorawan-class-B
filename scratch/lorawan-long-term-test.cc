@@ -132,8 +132,8 @@ int main (int argc, char *argv[])
   allNodes.Add (endDeviceNodes);
   allNodes.Add (gatewayNodes);
 
- 
   
+
   // new position allocator, where nodes are randomly placed in a disk of discradius size.
   double m_discRadius = 6100.0;
 
@@ -202,6 +202,14 @@ int main (int argc, char *argv[])
   lorawanHelper.SetDeviceType (LORAWAN_DT_GATEWAY);
   NetDeviceContainer lorawanGWDevices = lorawanHelper.Install (gatewayNodes);
 
+
+  //add an energy source to each end device
+  LoRaEnergySourceHelper sourceHelper;
+  EnergySourceContainer energySources = sourceHelper.Install(endDeviceNodes);
+
+  //add energy consumption model to each end device
+  LoRaRadioEnergyModelHelper radioHelper;
+  DeviceEnergyModelContainer deviceModels = radioHelper.Install (lorawanEDDevices, energySources);
   //lorawanHelper.EnablePcapAll ("myfirst", false); //not using PCAPs for now
   
   // Trace state changes in the phy
@@ -263,6 +271,14 @@ printf("set: %u\r\n", dr);
  
 
   Simulator::Stop (Seconds (86400.0));
+
+  std::cout << "Energy before starting: ";
+  for (uint8_t i = 1; i<= nNodes; i++)
+  {
+  //  std::cout << energySources.GetSize() << std::endl;
+    std::cout << energySources.Get(i-1)->GetRemainingEnergy() << " ";
+  }
+  std::cout << std::endl;
   //Simulator::Stop (Years (1.0));
 
   Simulator::Run ();
@@ -280,6 +296,14 @@ printf("set: %u\r\n", dr);
       "\t" << "DS_Retr" << "\t" << "DS_Acks" << "\t" << "DS_Bea" << 
       "\t" << "DS_B_Gen" << "\t" << "DS_B" << "\t" << "US_A" << std::endl;
   std::cout << "Net Device " << "ID" <<  "\t" << "TX_busy" << "\t" << "TX_dc" << "\t" << "RX_bea" << "\t" << "RX_dl" << std::endl;;*/
+
+  std::cout << "Energy at end: ";
+  for (uint8_t i = 1; i<= nNodes; i++)
+  {
+  //  std::cout << energySources.GetSize() << std::endl;
+    std::cout << energySources.Get(i-1)->GetRemainingEnergy() << " ";
+  }
+  std::cout << std::endl;
 
   Simulator::Destroy ();
 

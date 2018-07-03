@@ -26,7 +26,7 @@
 #include "ns3/simulator.h"
 #include "ns3/trace-source-accessor.h"
 #include "ns3/lora-radio-energy-model.h"
-#include "ns3/lora-phy.h"
+#include "ns3/lorawan-phy.h"
 
 NS_LOG_COMPONENT_DEFINE ("LoRaRadioEnergyModel");
 
@@ -42,25 +42,25 @@ LoRaRadioEnergyModel::GetTypeId (void)
     .AddConstructor<LoRaRadioEnergyModel> ()
     .AddAttribute ("StandbyCurrentA",
                    "The default radio standby current in Ampere.",
-                   DoubleValue (0.00000052),
+                   DoubleValue (0.0015),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetStandbyCurrentA,
                                        &LoRaRadioEnergyModel::GetStandbyCurrentA),
                    MakeDoubleChecker<double> ())
-    .AddAttribute ("TxCurrentA",
+    .AddAttribute ("TxCurrentA", //TODO: this depends on the tx power level chosen - is this modeled in the phy layer? Check. Using +13 from SX1272 for now
                    "The radio Tx current.",
-                   DoubleValue (0.007),
+                   DoubleValue (0.028),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetTxCurrentA,
                                        &LoRaRadioEnergyModel::GetTxCurrentA),
                    MakeDoubleChecker<double> ())
     .AddAttribute ("RxCurrentA",
                    "The radio Rx current.",
-                   DoubleValue (0.0005),
+                   DoubleValue (0.0112),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetRxCurrentA,
                                        &LoRaRadioEnergyModel::GetRxCurrentA),
                    MakeDoubleChecker<double> ())
     .AddAttribute ("SleepCurrentA",
                    "The radio Sleep current.",
-                   DoubleValue (0.0005),
+                   DoubleValue (0.0000005),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetSleepCurrentA,
                                        &LoRaRadioEnergyModel::GetSleepCurrentA),
                    MakeDoubleChecker<double> ())
@@ -82,7 +82,7 @@ LoRaRadioEnergyModel::LoRaRadioEnergyModel ()
   m_lastUpdateTime = Seconds (0.0);
   //m_energyDepletionCallback.Nullify ();
   m_source = NULL;
-  m_currentState = LoRaPhy::State::IDLE;
+  m_currentState = LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF;
   m_sourceEnergyUnlimited = 0;
   m_remainingBatteryEnergy = 0;
   m_sourcedepleted = 0;
@@ -111,17 +111,17 @@ LoRaRadioEnergyModel::GetTotalEnergyConsumption (void) const
 }
 
 double
-LoRaRadioEnergyModel::GetIdleCurrentA (void) const
+LoRaRadioEnergyModel::GetStandbyCurrentA (void) const
 {
   NS_LOG_FUNCTION (this);
-  return m_IdleCurrentA;
+  return m_StandbyCurrentA;
 }
 
 void
-LoRaRadioEnergyModel::SetIdleCurrentA (double idleCurrentA)
+LoRaRadioEnergyModel::SetStandbyCurrentA (double standbyCurrentA)
 {
-  NS_LOG_FUNCTION (this << idleCurrentA);
-  m_IdleCurrentA = idleCurrentA;
+  NS_LOG_FUNCTION (this << standbyCurrentA);
+  m_StandbyCurrentA = standbyCurrentA;
 }
 
 double
@@ -152,7 +152,22 @@ LoRaRadioEnergyModel::SetRxCurrentA (double rxCurrentA)
   m_RxCurrentA = rxCurrentA;
 }
 
-LoRaPhy::State
+double
+LoRaRadioEnergyModel::GetSleepCurrentA (void) const
+{
+  NS_LOG_FUNCTION (this);
+  return m_SleepCurrentA;
+}
+
+void
+LoRaRadioEnergyModel::SetSleepCurrentA (double sleepCurrentA)
+{
+  NS_LOG_FUNCTION (this << sleepCurrentA);
+  m_SleepCurrentA = sleepCurrentA;
+}
+
+
+LoRaWANPhyEnumeration
 LoRaRadioEnergyModel::GetCurrentState (void) const
 {
   NS_LOG_FUNCTION (this);
@@ -172,15 +187,14 @@ LoRaRadioEnergyModel::HandleEnergyChanged (){
 }
 
 void
-LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhy::LoRaWANPhyEnumeration newstate)
+LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhyEnumeration oldstate, LoRaWANPhyEnumeration newstate)
 {
   /*Change state identifiers here*/
   /*
   these are the LoRaWAN PHY states in this simulator.
+  
+  LoRaWANPhyEnumeration:
 
-
-  typedef enum
-{
   LORAWAN_PHY_TRX_OFF = 0x00,
   LORAWAN_PHY_IDLE = 0x01,
   LORAWAN_PHY_RX_ON = 0x02,
@@ -190,9 +204,8 @@ LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhy::LoRaWANPhyEnumeration newstat
   LORAWAN_PHY_SUCCESS = 0x06,
   LORAWAN_PHY_UNSPECIFIED = 0x07,
   LORAWAN_PHY_FORCE_TRX_OFF = 0x08,
-} LoRaWANPhyEnumeration;
-  
 
+  but SUCCESS and UNSPECIFIED are not used as states in the machine, just as return values by functions. And FORCE_TRX_OFF is only used by the Gateway, which we are not modelling.
   */
 
 
@@ -220,24 +233,26 @@ LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhy::LoRaWANPhyEnumeration newstat
 				default:
           NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);*/
 
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
-          case LoRaWANPhy::LoRaWANPhyEnumeration::LORAWAN_PHY_SUCCESS:
-          m_energyToDecrease = duration.GetSeconds () * m_IdleCurrentA * supplyVoltage;
-          break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
+            m_energyToDecrease = duration.GetSeconds () * m_SleepCurrentA * supplyVoltage;
+            break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
+            m_energyToDecrease = duration.GetSeconds () * m_StandbyCurrentA * supplyVoltage;
+            break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
+            m_energyToDecrease = duration.GetSeconds () * m_RxCurrentA * supplyVoltage;
+            break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
+            m_energyToDecrease = duration.GetSeconds () * m_TxCurrentA * supplyVoltage;
+            break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
+            m_energyToDecrease = duration.GetSeconds () * m_RxCurrentA * supplyVoltage;
+            break;
+          case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_TX:
+            m_energyToDecrease = duration.GetSeconds () * m_TxCurrentA * supplyVoltage;
+            break;
+          default:
+            NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
         }
 
       // update total energy consumption
@@ -262,10 +277,6 @@ LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhy::LoRaWANPhyEnumeration newstat
 {
 }
 
-/*
- * Private functions start here.
- */
-
 void
 LoRaRadioEnergyModel::DoDispose (void)
 {
@@ -283,20 +294,41 @@ LoRaRadioEnergyModel::DoGetCurrentA (void) const
   NS_LOG_FUNCTION (this);
   switch (m_currentState)
     {
-    case LoRaPhy::State::IDLE:
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
+      return m_SleepCurrentA;
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
+      return m_StandbyCurrentA;
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
+      return m_RxCurrentA;
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
+      return m_TxCurrentA;
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
+      return m_RxCurrentA;
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_TX:
+      return m_TxCurrentA;
+      break;
+    default:
+      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+
+    /*case LoRaPhy::State::IDLE:
       return m_IdleCurrentA;
     case LoRaPhy::State::TX:
       return m_TxCurrentA;
     case LoRaPhy::State::RX:
       return m_RxCurrentA;
     default:
-      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state:" << m_currentState);
+      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state:" << m_currentState);*/
     }
 }
 
 
 void
-LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaPhy::State state)
+LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaWANPhyEnumeration state)
 {
  
   /*
@@ -309,7 +341,27 @@ LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaPhy::State state)
   std::string preStateName;
   switch (m_currentState)
     {
-		case LoRaPhy::State::IDLE:
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
+      preStateName = "SLEEP";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
+      preStateName = "STANDBY";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
+      preStateName = "RX_ON";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
+      preStateName = "TX_ON";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
+      preStateName = "RX_BUSY";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_TX:
+      preStateName = "TX_BUSY";
+      break;
+    default:
+      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+		/*case LoRaPhy::State::IDLE:
       preStateName = "IDLE";
       break;
     case LoRaPhy::State::TX:
@@ -319,14 +371,35 @@ LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaPhy::State state)
       preStateName = "RX";
       break;
   default:
-    NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+    NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);*/
   }
 
   m_currentState = state;
   std::string curStateName;
   switch (state)
     {
-    case LoRaPhy::State::IDLE:
+      case LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
+      preStateName = "SLEEP";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
+      preStateName = "STANDBY";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
+      preStateName = "RX_ON";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
+      preStateName = "TX_ON";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
+      preStateName = "RX_BUSY";
+      break;
+    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_TX:
+      preStateName = "TX_BUSY";
+      break;
+    default:
+      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+
+    /*case LoRaPhy::State::IDLE:
       curStateName = "IDLE";
       break;
     case LoRaPhy::State::RX:
@@ -336,11 +409,12 @@ LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaPhy::State state)
       curStateName = "TX";
       break;
   default:
-    NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+    NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);*/
   }
 
   m_remainingBatteryEnergy = m_source -> GetRemainingEnergy();
 
+  //TODO: check this is used properly
   m_EnergyStateLogger (preStateName, curStateName, m_sourceEnergyUnlimited, m_energyToDecrease, m_remainingBatteryEnergy, m_totalEnergyConsumption);
 
   NS_LOG_DEBUG ("LoRaRadioEnergyModel:Switching to state: " << curStateName <<
