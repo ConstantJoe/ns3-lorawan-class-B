@@ -132,10 +132,75 @@ LoRaRadioEnergyModel::GetTxCurrentA (void) const
 }
 
 void
-LoRaRadioEnergyModel::SetTxCurrentA (double txCurrentA)
+LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurrent_dBm)
 {
-  NS_LOG_FUNCTION (this << txCurrentA);
-  m_TxCurrentA = txCurrentA;
+  NS_LOG_FUNCTION (this << newTxCurrent_dBm);
+
+  /*
+  TODO:
+  the values used here will be gained from measurements of the current consumption for every possible TX power option on the SX1272.
+  For now, just adding in the values specified in the datasheet, which are: 
+  */
+
+  switch (newTxCurrent_dBm)
+  {
+    case 20:
+      m_TxCurrentA = 0.125;
+      break;
+    case 17:
+      m_TxCurrentA = 0.090;
+      break;
+    case 13:
+      m_TxCurrentA = 0.028;
+      break;
+    case 7:
+      m_TxCurrentA = 0.018;
+      break;
+    default:
+      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined tx current used: " << newTxCurrent_dBm);
+  }
+
+  /*Tx power is currently set prior to going into Tx mode, so there's no situation where Tx power changes during a send (and so no current calculations have to be done here)*/
+
+  /*TODO: the max subband Tx power used in each channels (and since there is no ADR, the only Tx powers), are 14 and 27dBm.
+    So the switch statement above will always fail
+
+    The max EIRP for each subband, according to the ETSI regulations, are as follows:
+
+    subband | spectrum access | edge frequencies | max eirp | equivalent dBm
+    g       | 1% or LBT AFA   | 865-868MHz       | 10mW     | 10 dBm
+    g1      | 1% or LBT AFA   | 868-868.6MHz     | 25mW     | 14 dBm
+    g2      | 0.1% or LBT AFA | 868.7-869.2MHz   | 25mW     | 14 dBm
+    g3      | 10% or LBT AFA  | 869.4-869.65MHz  | 500mW    | 27 dBm
+    g4      | No Requirement  | 867-870MHz       | 5mW      | 7  dBm
+    g4      | 1% or LBT AFA   | 867-870MHz       | 25mW     | 14 dBm
+
+    The TXPower levels in LoRaWAN, which are used as part of the ADR, are defined as relative to the Max EIRP of the subband of the channel used for transmission, and are as follows:
+
+
+    TXPower | Configuration (EIRP)
+    0       | Max EIRP
+    1       | Max EIRP - 2dB
+    2       | Max EIRP - 4dB 
+    3       | Max EIRP - 6dB
+    4       | Max EIRP - 8dB
+    5       | Max EIRP - 10dB
+    6       | Max EIRP - 12dB
+    7       | Max EIRP - 14dB
+    8-14    | RFU (Reserved For Use)
+    15      | Defined in LoRaWAN
+
+    so, for example, the TXPower levels for a channel deployed in the g1 subband (e.g. 868.1, one of the mandetory ones) would be 14, 12, 10, 8, 6, 4, 2, 0.
+    and the TXPower levels for a channel deployed in the g3 band would be 27, 25, 23, 21, 19, 17, 15, 13.
+  
+    The last one ("defined in LoRaWAN") is described in section 5.3 of the protocol: The LinkADRReq command is used by the NS to change the data rate and tx power of an end device.
+    The requested data rate and tx power are encoded together in a single byte (4 bits each). A value of 15 specifies that the end device is to keep its current parameter value
+     (i.e. a TXpower of 15 means stay at whatever TXpower the device is at already).  
+
+    We base our energy calculations off of the SX1272, which can only reach a max TX power of 20dBm.
+  */
+
+  //m_TxCurrentA = txCurrentA;
 }
 
 double
