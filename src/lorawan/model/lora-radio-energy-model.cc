@@ -46,15 +46,15 @@ LoRaRadioEnergyModel::GetTypeId (void)
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetStandbyCurrentA,
                                        &LoRaRadioEnergyModel::GetStandbyCurrentA),
                    MakeDoubleChecker<double> ())
-    .AddAttribute ("TxCurrentA", //TODO: this depends on the tx power level chosen - is this modeled in the phy layer? Check. Using +13 from SX1272 for now
-                   "The radio Tx current.",
-                   DoubleValue (0.028),
+    /*.AddAttribute ("TxCurrentA", //TODO: this depends on the tx power level chosen - is this modeled in the phy layer? Check. Using +13 from SX1272 for now
+                   "The radio Tx, in dBm.",
+                   DoubleValue (2),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetTxCurrentA,
                                        &LoRaRadioEnergyModel::GetTxCurrentA),
-                   MakeDoubleChecker<double> ())
+                   MakeDoubleChecker<double> ())*/
     .AddAttribute ("RxCurrentA",
                    "The radio Rx current.",
-                   DoubleValue (0.0112),
+                   DoubleValue (0.0105),
                    MakeDoubleAccessor (&LoRaRadioEnergyModel::SetRxCurrentA,
                                        &LoRaRadioEnergyModel::GetRxCurrentA),
                    MakeDoubleChecker<double> ())
@@ -86,6 +86,34 @@ LoRaRadioEnergyModel::LoRaRadioEnergyModel ()
   m_sourceEnergyUnlimited = 0;
   m_remainingBatteryEnergy = 0;
   m_sourcedepleted = 0;
+
+  m_usePaBoost = true;
+
+  //note there are also a bit lower than expected - going to repeat with second device
+  //how much after decimal points figures to use?
+  m_txPowerUsePaBoost[0] = 0.0327329143; //2dBm
+  m_txPowerUsePaBoost[1] = 0.0339984; //3dBm
+  m_txPowerUsePaBoost[2] = 0.0352840571; //4dBm
+  m_txPowerUsePaBoost[3] = 0.0362664857; //5dBm
+  m_txPowerUsePaBoost[4] = 0.0377083936; //6dBm
+  m_txPowerUsePaBoost[5] = 0.0391588639; //7dBm
+  m_txPowerUsePaBoost[6] = 0.0407067311; //8dBm
+  m_txPowerUsePaBoost[7] = 0.0422184891; //9dBm
+  m_txPowerUsePaBoost[8] = 0.0443943; //10dBm
+  m_txPowerUsePaBoost[9] = 0.0468126286; //11dBm
+  m_txPowerUsePaBoost[10] = 0.0496468683; //12dBm
+  m_txPowerUsePaBoost[11] = 0.0526335714; //13dBm
+  m_txPowerUsePaBoost[12] = 0.0567028; //14dBm
+  m_txPowerUsePaBoost[13] = 0.0634942286; //15dBm
+  m_txPowerUsePaBoost[14] = 0.0718378413; //16dBm
+  m_txPowerUsePaBoost[15] = 0.0803444; //17dBm
+
+  m_txPowerUsePaBoost[16] = 0.086461646; //18dBm
+  m_txPowerUsePaBoost[17] = 0.0959928444; //19dBm
+  m_txPowerUsePaBoost[18] = 0.1070608683; //20dBm
+
+  m_txPowerUseRfo[0] = 0;
+
 }
 
 LoRaRadioEnergyModel::~LoRaRadioEnergyModel ()
@@ -132,6 +160,20 @@ LoRaRadioEnergyModel::GetTxCurrentA (void) const
 }
 
 void
+LoRaRadioEnergyModel::SetPaBoost (double paBoost)
+{
+  NS_LOG_FUNCTION (this << paBoost);
+  m_usePaBoost = paBoost; // todo: is this enough?
+}
+
+bool
+LoRaRadioEnergyModel::GetPaBoost (void) const
+{
+  NS_LOG_FUNCTION (this);
+  return m_usePaBoost;
+}
+
+void
 LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurrent_dBm)
 {
   NS_LOG_FUNCTION (this << newTxCurrent_dBm);
@@ -142,7 +184,8 @@ LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurren
   For now, just adding in the values specified in the datasheet, which are: 
   */
 
-  switch (newTxCurrent_dBm)
+  //these are the ones from the datasheet
+  /*switch (newTxCurrent_dBm)
   {
     case 20:
       m_TxCurrentA = 0.125;
@@ -158,7 +201,7 @@ LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurren
       break;
     default:
       NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined tx current used: " << newTxCurrent_dBm);
-  }
+  }*/
 
   /*Tx power is currently set prior to going into Tx mode, so there's no situation where Tx power changes during a send (and so no current calculations have to be done here)*/
 
@@ -201,6 +244,30 @@ LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurren
   */
 
   //m_TxCurrentA = txCurrentA;
+
+  if(m_usePaBoost)
+  {
+    if(newTxCurrent_dBm < 2)
+    {
+      NS_LOG_LOGIC (this << " Chosen dBm of " << newTxCurrent_dBm << " is less than the sx1272 min of 2dBm, using 2dBm instead.");
+      newTxCurrent_dBm = 2;
+     
+    }
+    else if(newTxCurrent_dBm > 20)
+    {
+      NS_LOG_LOGIC (this << " Chosen dBm of " << newTxCurrent_dBm << " is more than the sx1272 max of 20dBm, using 20dBm instead.");
+      newTxCurrent_dBm = 20; 
+    }
+    
+    int ind = (int) newTxCurrent_dBm;
+    ind -= 2;
+    m_TxCurrentA = m_txPowerUsePaBoost[ind];  
+    
+  }
+  else 
+  {
+    NS_FATAL_ERROR ("LoRaRadioEnergyModel:values for RFO not yet defined");
+  }
 }
 
 double
@@ -302,7 +369,7 @@ LoRaRadioEnergyModel::ChangeLoRaState (LoRaWANPhyEnumeration oldstate, LoRaWANPh
             m_energyToDecrease = duration.GetSeconds () * m_SleepCurrentA * supplyVoltage;
             break;
           case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
-            m_energyToDecrease = duration.GetSeconds () * m_StandbyCurrentA * supplyVoltage;
+            m_energyToDecrease = duration.GetSeconds () * m_StandbyCurrentA * supplyVoltage; //TODO: double-check use of this.
             break;
           case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
             m_energyToDecrease = duration.GetSeconds () * m_RxCurrentA * supplyVoltage;
@@ -426,6 +493,7 @@ LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaWANPhyEnumeration state)
       break;
     default:
       NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined radio state: " << m_currentState);
+      
 		/*case LoRaPhy::State::IDLE:
       preStateName = "IDLE";
       break;

@@ -80,7 +80,10 @@ LoRaRadioEnergyModelHelper::DoInstall (Ptr<NetDevice> device,
   Ptr<LoRaWANPhy> LoRaPhy = LoRaDevice->GetPhy ();
   //LoRaPhy -> TraceConnectWithoutContext ("TrxState",MakeCallback(&LoRaRadioEnergyModel::ChangeLoRaState, model));
   LoRaPhy -> TraceConnectWithoutContext ("TrxState",MakeCallback(&LoRaRadioEnergyModel::ChangeLoRaState, model));
+
+  std::cout << "prior to trace connect" << std::endl;
   LoRaPhy -> TraceConnectWithoutContext ("TxPower",MakeCallback(&LoRaRadioEnergyModel::SetTxCurrentA, model));
+  std::cout << "after trace connect" << std::endl;
 
   return model;
 

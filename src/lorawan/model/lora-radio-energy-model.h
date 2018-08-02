@@ -50,6 +50,9 @@ namespace ns3 {
  * Then the EnergySource object uses the total current to calculate energy.
  */
 
+#define SX1272_TX_OPTIONS_PA_BOOST 19
+#define SX1272_TX_OPTIONS_RFO 16
+
 class LoRaRadioEnergyModel : public DeviceEnergyModel
 {
 public:
@@ -85,9 +88,12 @@ public:
   double GetRxCurrentA (void) const;
   void SetRxCurrentA (double rxCurrentA);
   double GetTxCurrentA (void) const;
-  void SetTxCurrentA (double txCurrentA);
+  void SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurrent_dBm);
   double GetSleepCurrentA (void) const;
   void SetSleepCurrentA (double sleepCurrentA);
+  bool GetPaBoost (void) const;
+  void SetPaBoost (double paBoost);
+
 
   /**
    * \returns Current state.
@@ -152,6 +158,8 @@ private:
   double m_StandbyCurrentA;
   double m_SleepCurrentA;
 
+  bool m_usePaBoost;
+
   // This variable keeps track of the total energy consumed by this model.
   TracedValue<double> m_totalEnergyConsumption;
 
@@ -164,6 +172,9 @@ private:
   double m_remainingBatteryEnergy;      // remaining battery energy of the energy source attaching to the node
   bool m_sourceEnergyUnlimited;         // battery energy of the energy source attaching to the node unlimited or not
   bool m_sourcedepleted;                // battery energy of the energy source depleted or not
+
+  double m_txPowerUsePaBoost[SX1272_TX_OPTIONS_PA_BOOST];
+  double m_txPowerUseRfo[SX1272_TX_OPTIONS_RFO];
 
 };
 
