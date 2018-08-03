@@ -178,30 +178,6 @@ LoRaRadioEnergyModel::SetTxCurrentA (double oldTxCurrent_dBm, double newTxCurren
 {
   NS_LOG_FUNCTION (this << newTxCurrent_dBm);
 
-  /*
-  TODO:
-  the values used here will be gained from measurements of the current consumption for every possible TX power option on the SX1272.
-  For now, just adding in the values specified in the datasheet, which are: 
-  */
-
-  //these are the ones from the datasheet
-  /*switch (newTxCurrent_dBm)
-  {
-    case 20:
-      m_TxCurrentA = 0.125;
-      break;
-    case 17:
-      m_TxCurrentA = 0.090;
-      break;
-    case 13:
-      m_TxCurrentA = 0.028;
-      break;
-    case 7:
-      m_TxCurrentA = 0.018;
-      break;
-    default:
-      NS_FATAL_ERROR ("LoRaRadioEnergyModel:Undefined tx current used: " << newTxCurrent_dBm);
-  }*/
 
   /*Tx power is currently set prior to going into Tx mode, so there's no situation where Tx power changes during a send (and so no current calculations have to be done here)*/
 
@@ -512,21 +488,21 @@ LoRaRadioEnergyModel::SetLoRaRadioState (const LoRaWANPhyEnumeration state)
   switch (state)
     {
       case LoRaWANPhyEnumeration::LORAWAN_PHY_TRX_OFF:
-      preStateName = "SLEEP";
+      curStateName = "SLEEP";
       break;
     case LoRaWANPhyEnumeration::LORAWAN_PHY_IDLE:
-      preStateName = "STANDBY";
+      curStateName = "STANDBY";
       break;
     case LoRaWANPhyEnumeration::LORAWAN_PHY_RX_ON:
-      preStateName = "RX_ON";
+      curStateName = "RX_ON";
       break;
     case LoRaWANPhyEnumeration::LORAWAN_PHY_TX_ON:
-      preStateName = "TX_ON";
+      curStateName = "TX_ON";
       break;
     case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_RX:
-      preStateName = "RX_BUSY";
+      curStateName = "RX_BUSY";
       break;
-    case LoRaWANPhyEnumeration::LORAWAN_PHY_BUSY_TX:
+    case curStateName::LORAWAN_PHY_BUSY_TX:
       preStateName = "TX_BUSY";
       break;
     default:
