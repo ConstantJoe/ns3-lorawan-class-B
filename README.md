@@ -6,3 +6,5 @@ This is temporarily *not* a fork because I already have one fork of the imec ns-
 The original repo can be found here:
 
 https://github.com/imec-idlab/ns-3-dev-git/tree/lorawan
+
+More tests, examples, and documentation coming soon.
