@@ -53,10 +53,6 @@ LoRaWANPhy::GetTypeId (void)
                      "The state of the transceiver",
                      MakeTraceSourceAccessor (&LoRaWANPhy::m_trxState),
                      "ns3::TracedValueCallback::LoRaWANPhyEnumeration")
-    .AddTraceSource ("TxPower",
-                     "The transmit power of the transceiver, in dBm",
-                     MakeTraceSourceAccessor (&LoRaWANPhy::m_txPower),
-                     "ns3::TracedValueCallback::double")
     //.AddTraceSource ("TrxState",
     //                 "The state of the transceiver",
     //                 MakeTraceSourceAccessor (&LoRaWANPhy::m_trxStateLogger),
@@ -326,7 +322,6 @@ LoRaWANPhy::SetTxConf (int8_t power, uint8_t channelIndex, uint8_t dataRateIndex
   m_crcOn = crcOn;
   m_preambleLength = preambleLength;
   m_implicitHeader = implicitHeader; //implicit header is used in LoRaWAN Class B Beacon only
-  //TODO: is the implicit mode featured in the error model?
 
   // update TX PSD
   LoRaWANSpectrumValueHelper psdHelper;

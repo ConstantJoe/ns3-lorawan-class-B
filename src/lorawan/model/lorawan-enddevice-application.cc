@@ -71,14 +71,19 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
     .AddConstructor<LoRaWANEndDeviceApplication> ()
     .AddAttribute ("DataRateIndex",
                    "DataRate index used for US transmissions of this end device.",
-                   UintegerValue (5), // default data rate is SF12
+                   UintegerValue (0), // default data rate is SF12
                    MakeUintegerAccessor (&LoRaWANEndDeviceApplication::GetDataRateIndex, &LoRaWANEndDeviceApplication::SetDataRateIndex),
                    MakeUintegerChecker<uint16_t> (0, LoRaWAN::m_supportedDataRates.size ()))
     .AddAttribute ("ClassBDataRateIndex",
                    "DataRate index used for Class B receives of this end device.",
-                   UintegerValue (5), // default data rate is SF12
+                   UintegerValue (0), // default data rate is SF12
                    MakeUintegerAccessor (&LoRaWANEndDeviceApplication::GetClassBDataRateIndex, &LoRaWANEndDeviceApplication::SetClassBDataRateIndex),
                    MakeUintegerChecker<uint8_t> (0, LoRaWAN::m_supportedDataRates.size ()))
+    .AddAttribute ("IsClassB",
+                  "False means device is in Class A mode",
+                  BooleanValue(false),
+                  MakeBooleanAccessor (&LoRaWANEndDeviceApplication::m_isClassB),
+                  MakeBooleanChecker ())
     .AddAttribute ("PacketSize", "The size of packets sent in on state",
                    UintegerValue (21),
                    MakeUintegerAccessor (&LoRaWANEndDeviceApplication::m_pktSize),
@@ -94,11 +99,11 @@ LoRaWANEndDeviceApplication::GetTypeId (void)
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_channelRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("UpstreamIAT", "A RandomVariableStream used to pick the interval between sends from this device.",
-                   StringValue ("ns3::ConstantRandomVariable[Constant=600.0]"),
+                   StringValue ("ns3::ConstantRandomVariable[Constant=900.0]"),
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_upstreamIATRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("UpstreamSend", "A RandomVariableStream used to pick the time between subsequent US transmissions from this end device.",
-                   StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=600.0]"),
+                   StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=900.0]"),
                    MakePointerAccessor (&LoRaWANEndDeviceApplication::m_upstreamSendIATRandomVariable),
                    MakePointerChecker <RandomVariableStream>())
     .AddAttribute ("MaxBytes",
@@ -129,10 +134,8 @@ LoRaWANEndDeviceApplication::LoRaWANEndDeviceApplication ()
     m_fCntDown (0),
     m_setAck (false),
     m_totalRx (0),
-    m_isClassB (true), //set to true to enable class B
     m_ClassBPingPeriodicity (6), 
     m_ClassBChannelIndex(7), 
-    /*m_ClassBDataRateIndex(5),*/ 
     m_ClassBCodeRateIndex(1),
     m_ClassBfcntDown(0),
     m_ClassBfcntBeacon(0),
@@ -229,9 +232,6 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
 {
   NS_LOG_FUNCTION (this);
 
-  //printf("ed b dr set to %u\n", GetClassBDataRateIndex());
-  //std::cout << "ed b dr set to " <<  << std::endl;
-
   // Create the socket if not already
   if (!m_socket)
     {
@@ -264,8 +264,8 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
       m_ClassBPingSlots = std::pow(2.0, 7 - m_ClassBPingPeriodicity);
 
       NS_LOG_LOGIC("Scheduling ClassBReceiveBeacon! addr is " << GetNode ()->GetDevice (0)->GetAddress ());
+      
       //schedule event to wake up at exact time of next expected beacon
-      //TODO: set exact time to start here (either use a set "time" to start at (midnight 19/02/2018) or get input specified from user)
       Time t = Seconds (128);
       m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
       NS_LOG_DEBUG (this << " Class B beacon " << "scheduled to be received at " << t);  
@@ -277,12 +277,14 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   // If we are not yet connected, there is nothing to do here
   // The ConnectionComplete upcall will start timers at that time
   //if (!m_connected) return;
-  // change here - don't all send a packet straight away at start, they'll collide.
+  
+  // this is the original from the Van den Abeele simulator - send a packet straight away, and schedule another packet to be sent every x seconds after that
+  // results in continuous collisions (and all start at time 0)
   //m_txEvent = Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::SendPacket, this);
   
-  //Once every 900s it chooses a time in the next 900s interval to send a packet, and schedules the initial event again
-
-  // Comment out this bit for No Class A transmissions
+  // another version / traffic type
+  //Once every x seconds it chooses a time in the next x seconds interval to send a packet, and schedules the initial event again
+  //TODO: if upstreamRandomVar.max is 0, don't schedule any upstream sends
   Time nextTime (Seconds (this->m_upstreamIATRandomVariable->GetValue ()));
   NS_LOG_LOGIC (this << " scheduleNextTx nextTime = " << nextTime);
   m_sendEvent = Simulator::Schedule (nextTime,
@@ -292,11 +294,6 @@ void LoRaWANEndDeviceApplication::StartApplication () // Called at time specifie
   NS_LOG_LOGIC (this << " upstream nextTime = " << nextSendTime);
   m_txEvent = Simulator::Schedule (nextSendTime,
                                        &LoRaWANEndDeviceApplication::SendPacket, this);
-
-  //NS_LOG_LOGIC (this << " nextTime = " << nextTime << ".");
-  //NS_LOG_LOGIC (this << " nextTime = " << nextTime);
-  //m_txEvent = Simulator::Schedule (nextTime,
-  //                                     &LoRaWANEndDeviceApplication::SendPacket, this);
 }
 
 void LoRaWANEndDeviceApplication::StopApplication () // Called at time specified by Stop
@@ -389,9 +386,9 @@ void LoRaWANEndDeviceApplication::SendPacket ()
   LoRaWANPhyParamsTag phyParamsTag;
   phyParamsTag.SetChannelIndex (channelIndex);
   phyParamsTag.SetDataRateIndex (m_dataRateIndex);
-  phyParamsTag.SetCodeRate (1); //TODO: why was this three?
+  phyParamsTag.SetCodeRate (1);
 
-  phyParamsTag.SetPreambleLength (8); //TODO: magic number
+  phyParamsTag.SetPreambleLength (8);
 
   packet->AddPacketTag (phyParamsTag);
 
@@ -442,23 +439,15 @@ void LoRaWANEndDeviceApplication::HandleRead (Ptr<Socket> socket)
   Ptr<Packet> packet;
   Address from;
 
-  uint32_t bc_addr = 0;
-  Ipv4Address bc(bc_addr);
-  Address broadcast(bc);
   while ((packet = socket->RecvFrom (from))) //the sender address is placed into from
     {
       if (packet->GetSize () == 0)
         { //EOF
           break;
         }
-      m_totalRx += packet->GetSize ();
+      m_totalRx += packet->GetSize (); //TODO: only count payload size, don't count beacon frames
 
-      ///////////////////////
-      if (from == broadcast) {
-        NS_LOG_INFO ("Received a beacon?");
-      }
-      ///////////////////////
-      else if (PacketSocketAddress::IsMatchingType (from)) //TODO: note this sectence from the doc for this method: This method checks that the types are exactly equal. This method is really used only by the PacketSocketAddress and there is little point in using it otherwise so, you have been warned: DO NOT USE THIS METHOD
+      if (PacketSocketAddress::IsMatchingType (from)) //TODO: note this sentence from the doc for this method: This method checks that the types are exactly equal. This method is really used only by the PacketSocketAddress and there is little point in using it otherwise so, you have been warned: DO NOT USE THIS METHOD
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
                        << "s end device on node #"
@@ -485,7 +474,7 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
   // Try to parse Packet tag:
   LoRaWANMsgTypeTag msgTypeTag;
   if (p->RemovePacketTag (msgTypeTag)) {
-    LoRaWANMsgType msgType = msgTypeTag.GetMsgType ();
+    LoRaWANMsgType msgType = msgTypeTag.GetMsgType (); 
     if (msgType == LORAWAN_CONFIRMED_DATA_DOWN) {
       m_setAck = true; // next packet should set Ack bit
       NS_LOG_DEBUG (this << " Set Ack bit to 1");
@@ -493,6 +482,8 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
   } else {
     NS_LOG_WARN (this << " LoRaWANMsgTypeTag packet tag is missing from packet");
   }
+
+
 
   // Was packet received in first or second receive window?
   // -> Look at Mac state
@@ -512,34 +503,25 @@ LoRaWANEndDeviceApplication::HandleDSPacket (Ptr<Packet> p, Address from)
       m_dsMsgReceivedTrace (deviceAddress, msgTypeTag.GetMsgType(), p, 2);
       m_fcntRX2++;
   }
-  else if (state == MAC_BEACON) {
+  else if (state == MAC_BEACON && msgTypeTag.GetMsgType () == LORAWAN_BEACON) {
     // extract timestamp from packet
      uint8_t beacon[17];
      p->CopyData(beacon, 17);
 
-     //TODO: use logging instead of printf and cout
-    /* std::cout << "beacon packet contents" << std::endl;
-     for(uint8_t i=0;i<17;i++){
-      printf("%u ", beacon[i]);
-     }
-     std::cout  << std::endl;*/
-
      m_ClassBfcntBeacon++;
 
-     uint32_t time = (uint32_t)((beacon[4] << 24) | (beacon[3] << 16) | (beacon[2] << 8) | (beacon[1] << 0)); //bytes may be the wrong way around
-    // printf("Time: %u\r\n", time);
+     uint32_t time = (uint32_t)((beacon[4] << 24) | (beacon[3] << 16) | (beacon[2] << 8) | (beacon[1] << 0));
      Time timestamp = Seconds(time);
 
-     /*std::cout << "Times:" << std::endl;
-    std::cout << timestamp.GetSeconds() << std::endl;
-    std::cout << Simulator::Now() << std::endl;*/
-
-    Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::ClassBSchedulePingSlots, this, timestamp); //schedule next ping slots
-    m_dsMsgReceivedTrace (deviceAddress, msgTypeTag.GetMsgType(), p, 3);
+     Simulator::ScheduleNow (&LoRaWANEndDeviceApplication::ClassBSchedulePingSlots, this, timestamp); //schedule next ping slots
+     m_dsMsgReceivedTrace (deviceAddress, msgTypeTag.GetMsgType(), p, 3);
   }
   else if (state == MAC_CLASS_B_PACKET) {
-    //std::cout << "Received class b downlink!" << std::endl;
+    // TODO: some trace
     m_ClassBfcntDown++;
+  }
+  else {
+    NS_LOG_WARN (this << " Unexpected type of packet received during this state" << state  << " " << msgTypeTag.GetMsgType ());
   }
 
 }
@@ -562,9 +544,9 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
   NS_LOG_FUNCTION (this << " attempt to receive beacon at" << Simulator::Now ().GetSeconds () );
   //call method in MAC layer indicating time for Class B beacon
 
-  //TODO: is this direct call bad practice?
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   netDevice->StartReceivingBeacon();
+
   //schedule next beacon receive.
   Time t = Seconds (128);
   m_beaconTimer = Simulator::Schedule (t, &LoRaWANEndDeviceApplication::ClassBReceiveBeacon, this);
@@ -574,15 +556,21 @@ LoRaWANEndDeviceApplication::ClassBReceiveBeacon ()
 void
 LoRaWANEndDeviceApplication::ClassBSchedulePingSlots (Time timestamp)
 {
-  //TODO: this function should be fired from the MAC layer when the beacon is received (set the callback?)
-  //should function identically to the Network Server equivalent.
-  //The ping slots calculated from here should be based on the timestamp from inside the received beacon
-
-    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;
-    uint8_t key[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   
+    uint64_t period = std::pow(2.0, 12) / m_ClassBPingSlots;;   
+    uint8_t key[16]; // the key. Encryption of packets isn't fully supported right now so assuming a key of all 0s.
     uint8_t buf[16];
 
+    // add time from beacon frame to buffer
+    double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
+    uint32_t secsTruncated = (uint32_t) secs;
+
+    uint8_t *sp = (uint8_t *)&secsTruncated;
+    buf[0] = sp[0];
+    buf[1] = sp[1];
+    buf[2] = sp[2];
+    buf[3] = sp[3];
     
+    // add own node address to buffer
     Ipv4Address devAddr = Ipv4Address::ConvertFrom (GetNode ()->GetDevice (0)->GetAddress ());
     uint8_t addr[4];
     devAddr.Serialize(addr);
@@ -591,38 +579,19 @@ LoRaWANEndDeviceApplication::ClassBSchedulePingSlots (Time timestamp)
     buf[6] = addr[2];
     buf[7] = addr[3];
 
-    double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
-    uint32_t secsTruncated = (uint32_t) secs;
-
-    uint8_t *sp = (uint8_t *)&secsTruncated;
-
-    buf[0] = sp[0];
-    buf[1] = sp[1];
-    buf[2] = sp[2];
-    buf[3] = sp[3];
-
-    //pad16 is to ensure the buffer is 16 bytes long
-    for(uint i=8; i<16;i++){
-      buf[i] = 0;
-    }
+    //the rest of the buffer (the other 8 bytes) is just 0s.
 
     AES aes;
-
     aes.SetKey(key, 16);
     aes.Encrypt(buf, 16);
 
     uint64_t O = (buf[0] + buf[1]*256) % period;
 
-    //Ipv4Address deviceAddr = d->second.m_deviceAddress;
-    //NS_LOG_INFO(this << "Received packet from device addr = " << deviceAddr);
-    uint32_t beacon_reserved = 2120; // ms //TODO: magic numbers
+    uint32_t beacon_reserved = 2120; // ms 
     uint32_t slotLength = 30; // ms
     uint32_t dAddr = (uint32_t) devAddr.Get ();
 
     //calculate and schedule ping slots for this device
-
-    //Now: also: actually store the ping periods based on O, and use them to schedule firings of ClassBDSTimerExpired
-    //LoRaWANGatewayApplication::SendDSPacket can still be used - the DS packet is then built by the NS.
 
     //on the end device pingTime factors in the time in between the given timestamp and now
     Time offset = Simulator::Now() - timestamp;
@@ -642,7 +611,7 @@ LoRaWANEndDeviceApplication::ClassBPingSlot ()
 {
   NS_LOG_FUNCTION(this << "Start a ping slot");
   //attempt to receive a packet from the NS
-  //TODO: is this direct call bad practice?
+
   Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
   netDevice->StartReceivingClassBPacket(m_ClassBChannelIndex, m_ClassBDataRateIndex, m_ClassBCodeRateIndex);
 }
@@ -651,8 +620,6 @@ void
 LoRaWANEndDeviceApplication::PrintFinalDetails ()
 {
   std::cout << m_devAddr << "\t" <<  m_attemptedThroughput <<  "\t" << m_fcntRX1 << "\t" << m_fcntRX2 << "\t" << m_ClassBfcntDown << "\t" << m_ClassBfcntBeacon << std::endl;
-  //Ptr<LoRaWANNetDevice> netDevice = DynamicCast<LoRaWANNetDevice> (GetNode ()->GetDevice (0));
-  //netDevice->PrintFinalDetails();
 }
 
 } // Namespace ns3

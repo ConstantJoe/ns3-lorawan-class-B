@@ -279,8 +279,8 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
         CheckQueue ();
       }
   } else if (macState == MAC_TX) {
-      //TODO: assert will be too strong here. if not currently in idle state, report err, keep current mac state, and continue
-      if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
+      //An assert too strong here, as it is possible that a device will currently be in e.g. the MAC_BEACON state when a packet is attempted to be sent. If not currently in idle state, report err, keep current mac state, and continue
+      if(m_LoRaWANMacState == MAC_IDLE) {
          // for gateways: switch off other PHY/MACs on this net-device
         if (m_deviceType == LORAWAN_DT_GATEWAY) {
           NS_ASSERT (!this->m_beginTxCallback.IsNull ());
@@ -296,7 +296,7 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
         
       } else {
         m_failToTxBusy++;
-        NS_LOG_LOGIC(this << "device is busy at this time (not idle); couldn't transmit, transmission canceled. LoRaWANMacState: " << m_LoRaWANMacState); //TODO: is the packet lost then? record that
+        NS_LOG_LOGIC(this << "device is busy at this time (not idle); couldn't transmit, transmission canceled. LoRaWANMacState: " << m_LoRaWANMacState);
       }
   } else if (macState == MAC_WAITFORRW1) {
       NS_ASSERT (m_LoRaWANMacState == MAC_TX);
@@ -357,9 +357,8 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
       // Request to Put Phy into LORAWAN_PHY_FORCE_TRX_OFF
       m_phy->SetTRXStateRequest (LORAWAN_PHY_FORCE_TRX_OFF);
   } else if (macState == MAC_BEACON) {
-    //Assert is too strong here; beacons can be missed if Class A traffic is currently being sent.
-    //NS_ASSERT (m_LoRaWANMacState == MAC_IDLE); //can only attempt to receive beacon from idle mode
-    if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
+    // Assert is too strong here; beacons can be missed if Class A traffic is currently being sent.
+    if(m_LoRaWANMacState == MAC_IDLE) {
       ChangeMacState (macState);
 
       OpenRW ();  
@@ -370,7 +369,8 @@ LoRaWANMac::SetLoRaWANMacState (LoRaWANMacState macState)
      
    
   } else if (macState == MAC_CLASS_B_PACKET) {
-    if(m_LoRaWANMacState == MAC_IDLE) { //can only attempt to receive ping packet from idle mode. But assert is too strong
+    // Assert is too strong here; Class B downlink packets can be missed if Class A traffic is currently being sent.
+    if(m_LoRaWANMacState == MAC_IDLE) {
       ChangeMacState (macState);
 
       OpenRW ();  
@@ -475,25 +475,26 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
 
   Ptr<Packet> pktCopy = p->Copy (); // don't alter the original packet when removing headers
   LoRaWANMacHeader macHdr;
-  /*uint32_t headerLength = */pktCopy->RemoveHeader (macHdr);
+  pktCopy->RemoveHeader (macHdr);
 
   // Check MAC:
   // 1) Header: msg type
 
+  if(macHdr.getLoRaWANMsgType() == 0){  //TODO: the MAC header is not included in the beacon frame. As the Join procedure is not yet modeled in the simulator this will work as a way of identifying beacon frames.
+    // but once the join procedure is modeled it will not (as the MsgType of Join frames is 0)
 
-  if(pktCopy->GetSize() == 16) { //TODO: this is not the best possible method to do this.
-    
     m_macRxTrace (p);
     m_snifferTrace(p);
 
     NS_LOG_DEBUG("Receiving a beacon");
-    //TODO: this could be cleaned up
+
     LoRaWANDataIndicationParams params;
     params.m_channelIndex = channelIndex;
     params.m_dataRateIndex = dataRateIndex;
     params.m_codeRate = codeRate;
     params.m_msgType = LORAWAN_BEACON;
-     uint32_t bc_addr = 0;
+     
+    uint32_t bc_addr = 0;
     Ipv4Address bc(bc_addr);
     params.m_endDeviceAddress = bc; // packet was broadcasted
     params.m_MIC = 0; // no MIC in beacon
@@ -507,15 +508,16 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
        NS_LOG_DEBUG ("data indication callback is null.");
     }
 
-    //then schedule 
+    // then schedule 
     // Update MAC state from BEACON to IDLE, this will set the Phy TRX state to OFF
     m_setMacState.Cancel ();
     m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
   }
   else {
-     NS_LOG_DEBUG("Not receiving a beacon!");
+     NS_LOG_DEBUG("Receiving a non-beacon frame");
+
     if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // Class A only accepts downstream
-      if (!macHdr.IsDownstream () && m_LoRaWANMacState != MAC_CLASS_B_PACKET) { //TODO: is this the best way?
+      if (!macHdr.IsDownstream ()) {
         acceptFrame = false;
       }
     } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway only accepts upstream
@@ -666,9 +668,9 @@ LoRaWANMac::SetTRXStateConfirm (LoRaWANPhyEnumeration status)
        NS_ASSERT (status == LORAWAN_PHY_RX_ON);
     }
   else if (m_LoRaWANMacState == MAC_CLASS_B_PACKET)
-  {
-    NS_ASSERT (status == LORAWAN_PHY_RX_ON);
-  }
+    {
+       NS_ASSERT (status == LORAWAN_PHY_RX_ON);
+    }
   else
     {
       // TODO: What to do when we receive an error?
@@ -687,48 +689,41 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
 
   NS_ASSERT (m_txPkt);
   LoRaWANMacHeader macHdr;
-  long int size_peeked = m_txPkt->PeekHeader (macHdr);
+  m_txPkt->PeekHeader (macHdr);
 
   if (status == LORAWAN_PHY_SUCCESS)
     {
       NS_ASSERT_MSG (m_txQueue.size () > 0, "TxQsize = 0");
       TxQueueElement *txQElement = m_txQueue.front ();
 
-      if (size_peeked == 0) //TODO: test this works
+      // As no Ack is comming, notify upper layer that packet was sent and check if packet can be removed from queue
+      if (!macHdr.IsConfirmed ())
       {
-        // no MAC header = Class B beacon.
-        // don't send the same beacon again, the timestamp will be out of date
-        RemoveFirstTxQElement (true);
-      }
-      else{
-        // As no Ack is comming, notify upper layer that packet was sent and check if packet can be removed from queue
-        if (!macHdr.IsConfirmed ())
+        m_macTxOkTrace (m_txPkt);
+        if (!m_dataConfirmCallback.IsNull ())
         {
-          m_macTxOkTrace (m_txPkt);
-          if (!m_dataConfirmCallback.IsNull ())
-            {
-              LoRaWANDataConfirmParams confirmParams;
-              confirmParams.m_requestHandle = txQElement->lorawanDataRequestParams.m_requestHandle;
-              confirmParams.m_status = LORAWAN_SUCCESS;
-              m_dataConfirmCallback (confirmParams);
-            }
+          LoRaWANDataConfirmParams confirmParams;
+          confirmParams.m_requestHandle = txQElement->lorawanDataRequestParams.m_requestHandle;
+          confirmParams.m_status = LORAWAN_SUCCESS;
+          m_dataConfirmCallback (confirmParams);
+        }
 
-          // Reduce number of transmissions by one
+        // Reduce number of transmissions by one
+        txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
+
+        // Check if we can remove the packet from the queue
+        if (txQElement->lorawanDataRequestParams.m_numberOfTransmissions == 0) {
+          // UNC packet has reached 0 tx attempts, so we can remove it from our queue
+          NS_LOG_DEBUG (this << " UNC packet reached zero transmissions, removing packet from queue.");
+          RemoveFirstTxQElement (true);
+        }
+      } else {
+        if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+          // For confirmed messages, decrease the number of transmissions
+          NS_ASSERT (txQElement->lorawanDataRequestParams.m_numberOfTransmissions > 0);
+          NS_LOG_DEBUG( this << " Decreasing number of transmission for packet from " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) << " to " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) - 1);
           txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
-
-          // Check if we can remove the packet from the queue
-          if (txQElement->lorawanDataRequestParams.m_numberOfTransmissions == 0) {
-            // UNC packet has reached 0 tx attempts, so we can remove it from our queue
-            NS_LOG_DEBUG (this << " UNC packet reached zero transmissions, removing packet from queue.");
-            RemoveFirstTxQElement (true);
-          }
-        } else {
-          if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
-            // For confirmed messages, decrease the number of transmissions
-            NS_ASSERT (txQElement->lorawanDataRequestParams.m_numberOfTransmissions > 0);
-            NS_LOG_DEBUG( this << " Decreasing number of transmission for packet from " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) << " to " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) - 1);
-            txQElement->lorawanDataRequestParams.m_numberOfTransmissions--;
-          } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
+        } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
             // As retransmissions are handled by the network server, it does not make sense to keep the packet in the queue on this gateway MAC
             RemoveFirstTxQElement (true);
           } else {
@@ -736,7 +731,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
             return;
           }
         }
-      }
+      
       
 
       // Update MAC and PHY state: depending on device class go to either WAITFORRW1 or directly to IDLE
@@ -746,8 +741,6 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_WAITFORRW1);
       } else if (m_deviceType == LORAWAN_DT_GATEWAY) { // Gateway
         // Always go to IDLE state for gateway, retransmissions are handled by the network server
-        // This method is okay for Class B beacons and downlinks too.
-        NS_LOG_DEBUG("Go to idle mode now");
         
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_IDLE);
 
@@ -782,7 +775,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // TODO: inform upper layers via DataConfirmCallback
   // For now Join request/Join Accept messages are not supported
-  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
+  if (!(params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON) ) {
     // We only know how to send (un)confirmed data up or down
     NS_LOG_ERROR (this << " unsupported LoRaWAN Message type: " << params.m_msgType);
     return;
@@ -812,7 +805,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 
   // Gateways may send downstream, end devices only send upstream data
   if (m_deviceType == LORAWAN_DT_GATEWAY) {
-    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN) ) {
+    if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_DOWN || params.m_msgType == LORAWAN_BEACON) ) {
       NS_LOG_ERROR (this << " Gateway only supports downstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
     }
@@ -849,14 +842,9 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
   TxQueueElement *txQElement = new TxQueueElement;
   txQElement->lorawanDataRequestParams = params;
   txQElement->txQPkt = phyPayload;
-  
 
-  /////////////////////////////////////
-  //m_txQueue.push_back (txQElement);
-
-  //beacon and Class B downlink have to be sent as soon as scheduled, if its a beacon put it at the start of the queue
-  //TODO: double check this manipulation of the list works
-  if(params.m_msgType == LORAWAN_BEACON || params.m_msgType == LORAWAN_CLASS_B_DOWN)
+  //beacon has to be sent as soon as scheduled, if its a beacon put it at the start of the queue
+  if(params.m_msgType == LORAWAN_BEACON)
   {
     m_txQueue.insert(m_txQueue.begin(), txQElement);
   }
@@ -865,7 +853,6 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
     //otherwise push it to the end 
     m_txQueue.push_back (txQElement);  
   }
-  ///////////////////////////////////////
 
   CheckQueue ();
 }
@@ -873,39 +860,28 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
 Ptr<Packet>
 LoRaWANMac::constructPhyPayload (LoRaWANDataRequestParams params, Ptr<Packet> p)
 {
-  //In beacons, there is no LoRa physical header, MacHeader, or MIC.
-  NS_LOG_FUNCTION(this << "adding mac header");
+  // PHYPayload consists of MAC header, MACPayload and MIC
+  NS_LOG_FUNCTION(this);
 
-  if (!(params.m_msgType == LORAWAN_BEACON)){
-    // PHYPayload consists of MAC header, MACPayload and MIC
-    //NOTE: LORAWAN beacons and Class B down have been added to the message types for convineance. But they are not specific types in the LoRaWAN standard and so are not specified in the MAC header.
-    if(params.m_msgType == LORAWAN_CLASS_B_DOWN) {
+  if (!(params.m_msgType == LORAWAN_BEACON)){ //In beacons, there is no LoRa physical header, MacHeader, or MIC.
+    // NOTE: LORAWAN beacon has been added to the message types for convenience. But it is not a specific type in the LoRaWAN standard and so is not specified in the MAC header.
+    // TODO: remove it from the message types
+    /*if(params.m_msgType == LORAWAN_CLASS_B_DOWN) {
       LoRaWANMacHeader lorawanMacHdr (LORAWAN_UNCONFIRMED_DATA_DOWN, 0);
       p->AddHeader (lorawanMacHdr);
     } else {
       LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
       p->AddHeader (lorawanMacHdr);
-    }
-    
-    
+    }*/
 
-  
+    LoRaWANMacHeader lorawanMacHdr (params.m_msgType, 0);
+    p->AddHeader (lorawanMacHdr);
+    
     // 4B MIC
     uint32_t size = p->GetSize ();
   
-
     p->AddPaddingAtEnd (4); // as MIC support is not implemented, we do not add a MIC trailer
-    NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet  
-  
-  
-    LoRaWANMacHeader macHdr;
-    uint32_t headerLength = p->PeekHeader (macHdr);
-    NS_LOG_DEBUG("there is a mac header on non-beacon frames, length of header = " << headerLength);
-  }
-  else {
-    LoRaWANMacHeader macHdr;
-    uint32_t headerLength = p->PeekHeader (macHdr);
-    NS_LOG_DEBUG("there is no mac header on beacon frames, length of header = " << headerLength);
+    NS_ASSERT (p->GetSize () == (uint32_t)(size + 4)); // make sure the MIC is accounted for in the packet    
   }
   return p;
 }
@@ -921,7 +897,6 @@ LoRaWANMac::CheckQueue ()
 
   if (m_LoRaWANMacState == MAC_IDLE && !m_txQueue.empty () && m_txPkt == 0 && !m_setMacState.IsRunning ())
   {
-    NS_LOG_DEBUG("maybe send");
     // Check RDC constraints for first packet in the queue
     TxQueueElement *txQElement = m_txQueue.front ();
     int8_t subBandIndex = m_lorawanMacRDC->GetSubBandIndexForChannelIndex (txQElement->lorawanDataRequestParams.m_loraWANChannelIndex);
@@ -939,14 +914,13 @@ LoRaWANMac::CheckQueue ()
       return; // return, otherwise we will remove the first tx queue element below
     } else {
       NS_LOG_DEBUG (this << " Cannot sent packet because sub band #" << static_cast<uint16_t>(subBandIndex) << " is not available");
-      m_failToTxDutyCycle++;
-      //if this is a ping slot then this is okay, the packet can be sent in a later one instead.
+      m_failToTxDutyCycle++; //if this is a ping slot then a fail-to-send is okay, the packet can be sent in a later one instead.
       if (m_deviceType != LORAWAN_DT_GATEWAY) {
         m_lorawanMacRDC->ScheduleSubBandTimer (this, subBandIndex); // schedule RDC timer
       }
     }
   } else {
-    //TODO: measure these metrics???
+
     if (m_LoRaWANMacState != MAC_IDLE) {
       NS_LOG_DEBUG (this << " Cannot sent packet because MAC is not idle, MAC state is equal to " << m_LoRaWANMacState);
     }
@@ -969,20 +943,12 @@ LoRaWANMac::CheckQueue ()
       TxQueueElement *txQElement = m_txQueue.front ();
       LoRaWANDataRequestParams params = txQElement->lorawanDataRequestParams;
 
-      
-      //if not a ping slot
-      if(params.m_msgType == LORAWAN_CLASS_B_DOWN) {
-        NS_LOG_DEBUG(this << "Can't send ping message in this slot, it will be sent later.");
-        //TODO: increment some counter here?
-      }
-      else if (params.m_msgType == LORAWAN_BEACON) {
-         NS_LOG_DEBUG(this << "Can't currently send the beacon frame.");
-         //TODO: increment some counter here?
+      if (params.m_msgType == LORAWAN_BEACON) {
+          NS_LOG_DEBUG(this << "Can't currently send the beacon frame.");
+          // TODO: remove the beacon from the list?
       }
       else {
-        this->RemoveFirstTxQElement (false);
-
-          // NS_LOG_DEBUG (this << params.m_msgType ); //This happens when GW can't send beacon?
+          this->RemoveFirstTxQElement (false);
           NS_FATAL_ERROR (this << " Gateway is unable to send packet immediately, aborting packet transmission.");
       }
     }
@@ -1187,8 +1153,7 @@ LoRaWANMac::OpenRW ()
   } 
   else if (m_LoRaWANMacState == MAC_BEACON) {
     // beacon uses a set channel and data rate defined in the spec
-    uint8_t channelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: this is currently set as a high power channel in the phy layer implementation. Is this correct?
-    // Note: this also appears to be the only channel outside of the main subband?
+    uint8_t channelIndex = 7; // 869.525MHz. Mandetory for Class B beacons. TODO: no magic numbers
     uint8_t dataRateIndex = 3; // SF9, 125kHz BW. Mandetory for Class B beacons.
 
     uint8_t codeRate = 1;

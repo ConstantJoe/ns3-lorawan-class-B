@@ -56,8 +56,8 @@ typedef enum
   //MAC_RX,              //!< MAC_RX
   MAC_ACK_TIMEOUT, 	 //!< MAC_ACK_TIMEOUT, MAC state during which the MAC is waiting for the ACK_TIMEOUT (no TX is allowed during this state)
   MAC_UNAVAILABLE, 	         //!< MAC_UNAVAILABLE, MAC is currently unavailable to perform any operation (e.g. other MAC on same device is currently sending)
-  MAC_BEACON, // rx mode for receiving beacon
-  MAC_CLASS_B_PACKET
+  MAC_BEACON,            // rx state for receiving beacon frames (end device only)
+  MAC_CLASS_B_PACKET     // rx state for receiving Class B downlink frames (end device only)
 } LoRaWANMacState;
 
 namespace TracedValueCallback {
@@ -134,11 +134,10 @@ struct LoRaWANDataConfirmParams
  */
 struct LoRaWANDataIndicationParams
 {
-  uint8_t m_channelIndex;		//!< Channel index of received transmission
+  uint8_t m_channelIndex;		  //!< Channel index of received transmission
   uint8_t m_dataRateIndex;		//!< Data rate index of received transmission
-  uint8_t m_codeRate;			//!< Code rate of received transmission
-
-  uint8_t m_preambleLength;
+  uint8_t m_codeRate;			    //!< Code rate of received transmission
+  uint8_t m_preambleLength;   //!< Preamble length of received transmission (usually 8 symbols, longer for beacons)
 
   LoRaWANMsgType m_msgType; 		//!< Message Type
   Ipv4Address m_endDeviceAddress; 	//!< End Device Address
@@ -361,9 +360,9 @@ protected:
   
 private:
 
-  uint8_t m_ClassBChannelIndex;
-  uint8_t m_ClassBDataRateIndex;
-  uint8_t m_ClassBCodeRateIndex;
+  uint8_t m_ClassBChannelIndex;  // the Channel Class B downlink frames are expected to be sent in for this device (used by end device only)
+  uint8_t m_ClassBDataRateIndex; // the date rate Class B downlink frames are expected to be sent using for this device (used by end device only)
+  uint8_t m_ClassBCodeRateIndex; // the code rate Class B downlink frames are expected to be sent using for this device (used by end device only)
 
   /**
    * The trace source fired when packets are considered as successfully sent

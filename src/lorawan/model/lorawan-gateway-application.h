@@ -34,6 +34,7 @@
 #include "ns3/aes.h"
 
 #include "ns3/lorawan.h"
+#include "ns3/lorawan-enddevice-application.h"
 #include <unordered_map>
 #include <deque>
 
@@ -86,8 +87,8 @@ typedef struct LoRaWANEndDeviceInfoNS {
   m_framePending(false),m_setAck(false), m_fCntUp(0), m_fCntDown(0),
   m_nUSPackets(0), m_nUniqueUSPackets(0), m_nUSRetransmission(0), m_nUSDuplicates(0), m_nUSAcks(0),
   m_nDSPacketsGenerated(0), m_nDSPacketsSent(0), m_nDSPacketsSentRW1(0), m_nDSPacketsSentRW2(0), m_nDSRetransmission(0), m_nDSAcks(0),
-  m_rw1Timer(), m_rw2Timer(), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
-  m_ClassBdownstreamTimer(), m_ClassBdownstreamTimerSchedule(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(5), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
+  m_rw1Timer(), m_rw2Timer(), m_isClassB(false), m_downstreamQueue(), m_ClassBdownstreamQueue(), m_nClassBPacketsGenerated(0), m_nClassBPacketsSent(0), 
+  m_ClassBdownstreamTimer(), m_ClassBdownstreamTimerSchedule(), m_ClassBPingPeriodicity(6), m_ClassBChannelIndex(7), m_ClassBDataRateIndex(0), m_ClassBCodeRateIndex(1), m_downstreamTimer() {}
 
   Ipv4Address     m_deviceAddress;
   uint8_t     m_rx1DROffset;
@@ -119,7 +120,10 @@ typedef struct LoRaWANEndDeviceInfoNS {
   EventId   m_rw1Timer;
   EventId   m_rw2Timer;
 
+
   // Pending downstream traffic
+
+  bool m_isClassB;
   std::deque<LoRaWANNSDSQueueElement* > m_downstreamQueue;
 
   std::deque<LoRaWANNSDSQueueElement* > m_ClassBdownstreamQueue;
@@ -166,18 +170,11 @@ public:
 
   int64_t AssignStreams (int64_t stream);
 
-  //////////////////////////////////
-  // Code in here has been added by Joe.
   void ClassBDSTimerExpired (uint32_t deviceAddr); //generates downlink packets for Class B. May be removed to a seperate data generator class later.
   void ClassBScheduleExpiry(uint32_t deviceAddr);
   void ClassBSendBeacon ();
   void ClassBPingSlot(uint32_t devAddr, uint64_t pingTime);
 
-  uint64_t getGPSTime();
-  uint64_t getGPSTimeFromUnixTime(uint64_t unixMS);
-  uint64_t getRelativeGPSTime(uint64_t secondsPassed);
-  uint64_t countLeaps(uint64_t gpsMS, bool isUnixToGPS);
-  bool shouldAddLeap(uint64_t gpsMS, uint64_t curGPSLeapMS, uint64_t totalLeapsMS, bool isUnixToGPS);
   void AssignInitialGateway(Ptr<LoRaWANGatewayApplication> gw);
 
 
@@ -186,7 +183,6 @@ public:
   uint8_t m_defaultClassBDataRateIndex;
 
   std::unordered_map <uint32_t, LoRaWANEndDeviceInfoNS> m_endDevices;
-  //////////////////////////////////
 
 private:
   static Ptr<LoRaWANNetworkServer> m_ptr;
@@ -213,7 +209,6 @@ private:
     EventId     m_beaconTimer;
     std::set<Ptr<LoRaWANGatewayApplication>> m_gateways;
     bool m_generateClassBDataDown;
-    bool m_scheduleFromUnixTime;
 
     uint8_t     m_ClassBBeaconChannelIndex;
     uint8_t     m_ClassBBeaconDataRateIndex;

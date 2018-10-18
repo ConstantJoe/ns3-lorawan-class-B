@@ -96,6 +96,8 @@ public:
 
   void PrintFinalDetails();
 
+  bool m_isClassB;                //!< specifies Class B, (wakes up for beacons and ping slots, sets bit in uplink packets)
+  
 protected:
   virtual void DoDispose (void);
 private:
@@ -143,7 +145,7 @@ private:
   void ClassBReceiveBeacon ();
   void ClassBPingSlot ();
 
-  bool m_isClassB;                //!< specifies Class B, (wakes up for beacons and ping slots, sets bit in uplink packets)
+  
   EventId     m_beaconTimer;      //Beacon event
   uint8_t     m_ClassBPingSlots;
   uint8_t     m_ClassBPingPeriodicity;

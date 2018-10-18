@@ -109,7 +109,6 @@ namespace ns3 {
    LORAWAN_RFU,
    LORAWAN_PROPRIETARY,
    LORAWAN_BEACON,
-   LORAWAN_CLASS_B_DOWN
   } LoRaWANMsgType;
 
   class LoRaWAN {

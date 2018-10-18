@@ -580,8 +580,7 @@ private:
   //uint8_t m_phyDataRate; // LoRaWAN DataRate as per $7.1.3
   uint8_t m_currentChannelIndex; // for RX and TX
   uint8_t m_currentDataRateIndex; // only for TX
-  //double m_txPower; // in dBm
-  TracedValue<double> m_txPower; // in dBm
+  double m_txPower; // in dBm
   uint8_t m_codeRate; // only for TX
   uint8_t m_preambleLength;
   bool m_crcOn;

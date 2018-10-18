@@ -762,7 +762,6 @@ LoRaWANNetDevice::AssignStreams (int64_t stream)
 }
 
 
-/////////////////////////////////////////
 void
 LoRaWANNetDevice::StartReceivingBeacon (void)
 {
@@ -782,7 +781,7 @@ LoRaWANNetDevice::StartReceivingClassBPacket (uint8_t m_ClassBChannelIndex, uint
   m_mac->SetLoRaWANMacState(MAC_CLASS_B_PACKET);
 }
 
-/////////////////////////////////////////
+
 void
 LoRaWANNetDevice::PrintFinalDetails ()
 {
