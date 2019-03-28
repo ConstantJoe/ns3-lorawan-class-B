@@ -99,8 +99,6 @@ int main (int argc, char *argv[])
 
   LoRaWANHelper lorawanHelper;
 
-  
-
   //lorawanHelper.EnableLogComponents(LOG_LEVEL_ALL);
 
   lorawanHelper.SetNbRep(1);
@@ -108,18 +106,6 @@ int main (int argc, char *argv[])
 
   lorawanHelper.SetDeviceType (LORAWAN_DT_GATEWAY);
   NetDeviceContainer lorawanGWDevices = lorawanHelper.Install (gatewayNodes);
-
-  lorawanHelper.EnablePcapAll ("myfirst", false);
-  
-  // Trace state changes in the phy
-  //dev0->GetPhy ()->TraceConnect ("TrxState", std::string ("phy0"), MakeCallback (&StateChangeNotification));
-  //dev1->GetPhy ()->TraceConnect ("TrxState", std::string ("phy1"), MakeCallback (&StateChangeNotification));
-  //dev2->GetPhy ()->TraceConnect ("TrxState", std::string ("phy2"), MakeCallback (&StateChangeNotification));
-  //dev3->GetPhy ()->TraceConnect ("TrxState", std::string ("phy3"), MakeCallback (&StateChangeNotification));
-  //for (auto &i : devgw->GetPhys()) {
-  //  i->TraceConnect ("TrxState", std::string ("phy-gw"), MakeCallback (&StateChangeNotification));
-  //}
-
 
   // Note to self: PacketSocketHelper::Install adds a PacketSocketFactory
   // object as an aggregate object to each of the nodes in the NodeContainer
@@ -129,22 +115,6 @@ int main (int argc, char *argv[])
   PacketSocketHelper packetSocket;
   packetSocket.Install (endDeviceNodes);
   packetSocket.Install (gatewayNodes);
-
-  // Not sure what this does
- // PacketSocketAddress socket;
- // socket.SetSingleDevice (lorawanEDDevices.Get (0)->GetIfIndex ()); // Set the address to match only a specified NetDevice...
-  // socket.SetPhysicalAddress (lorawanGWDevices.Get (0)->GetAddress ()); // Set destination address
-  //socket.SetProtocol (1); // Set the protocol
-
-  /*OnOffHelper onoff ("ns3::PacketSocketFactory", Address (socket));
-  onoff.SetAttribute ("OnTime", StringValue ("ns3::ExponentialRandomVariable[Mean=100]"));
-  onoff.SetAttribute ("OffTime", StringValue ("ns3::ExponentialRandomVariable[Mean=10]"));
-  onoff.SetAttribute ("DataRate", DataRateValue (DataRate ("0.4Mbps")));
-  onoff.SetAttribute ("DataRate", DataRateValue (DataRate (3*8))); // 3 bytes per second
-  onoff.SetAttribute ("DataRate", DataRateValue (DataRate (6*8))); // 3 bytes per second
-  onoff.SetAttribute ("PacketSize", UintegerValue (30));
-
-  ApplicationContainer apps = onoff.Install (endDeviceNodes.Get (0));*/
 
   LoRaWANGatewayHelper gatewayhelper;
   //leaving attributes set static for now

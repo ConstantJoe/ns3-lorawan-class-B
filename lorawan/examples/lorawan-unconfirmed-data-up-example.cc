@@ -67,8 +67,8 @@ int main (int argc, char *argv[])
   // Create a gateway node and corresponding NetDevice
   Ptr<Node> gw0 = CreateObject <Node> ();
 
-  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
-  Ptr<LoRaWANNetDevice> dev1 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
+  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
+  Ptr<LoRaWANNetDevice> dev1 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
   Ptr<LoRaWANNetDevice> dev2 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_GATEWAY);
 
   dev0->SetAddress (Ipv4Address (0x00000001));

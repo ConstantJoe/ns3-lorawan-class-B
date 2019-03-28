@@ -36,7 +36,8 @@
 #include "lorawan.h"
 #include "lorawan-net-device.h"
 #include "lorawan-gateway-application.h"
-#include "lorawan-frame-header.h"
+#include "lorawan-frame-header-uplink.h"
+#include "lorawan-frame-header-downlink.h"
 #include "ns3/udp-socket-factory.h"
 #include "ns3/string.h"
 #include "ns3/pointer.h"
@@ -162,22 +163,7 @@ namespace ns3 {
       // Construct LoRaWANEndDeviceInfoNS object
       LoRaWANEndDeviceInfoNS info = InitEndDeviceInfo (ipv4DevAddr);
 
-      uint32_t key = ipv4DevAddr.Get ();
-
-      Ptr<LoRaWANEndDeviceApplication> endDevice = DynamicCast<LoRaWANEndDeviceApplication> (nodePtr->GetApplication (0));
-
-      if(m_generateClassBDataDown && endDevice->m_isClassB){
-          info.m_ClassBPingSlots = std::pow(2.0, 7 - info.m_ClassBPingPeriodicity); // number of ping slots is based on ping periodicity, and is always a power of two.
-          info.m_ClassBDataRateIndex = m_defaultClassBDataRateIndex;
-          info.m_isClassB = true;
-
-          Time t = Seconds (this->m_ClassBdownstreamRandomVariable->GetValue ());
-          info.m_ClassBdownstreamTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBDSTimerExpired, this, key);
-          NS_LOG_DEBUG (this << " Class B DS Traffic Timer for node " << ipv4DevAddr << " scheduled at " << t);
-
-          Time t2 = Seconds (this->m_ClassBdownstreamIATRandomVariable->GetValue ());
-          info.m_ClassBdownstreamTimerSchedule = Simulator::Schedule (t2, &LoRaWANNetworkServer::ClassBScheduleExpiry, this, key);
-      }
+      uint32_t key = ipv4DevAddr.Get (); 
 
       m_endDevices[key] = info; // store object
     } else {
@@ -241,7 +227,8 @@ LoRaWANNetworkServer::HandleUSPacket (Ptr<LoRaWANGatewayApplication> lastGW, Add
   // PacketSocketAddress fromAddress = PacketSocketAddress::ConvertFrom (from);
 
   // Decode Frame header
-  LoRaWANFrameHeader frmHdr;
+  //LoRaWANFrameHeader frmHdr;
+  LoRaWANFrameHeaderUplink frmHdr;
   frmHdr.setSerializeFramePort (true); // Assume that frame Header contains Frame Port so set this to true so that RemoveHeader will deserialize the FPort
   packet->RemoveHeader (frmHdr);
 
@@ -343,6 +330,35 @@ LoRaWANNetworkServer::HandleUSPacket (Ptr<LoRaWANGatewayApplication> lastGW, Add
       // Note that an end device retransmitting a frame will not change the Ack bit between retransmissions (ns-3 implementation limitation, to be fixed)
       NS_LOG_WARN (this << " Upstream frame has Ack bit set, but there is no downstream frame queued.");
     }
+  }
+
+  // Parse Class B flag
+
+  if (frmHdr.getClassB () && !(it->second.m_isClassB) && m_generateClassBDataDown) {
+    //turning on Class B mode
+    NS_LOG_DEBUG("Turning on Class B mode");
+    it->second.m_isClassB = true;
+
+    it->second.m_ClassBPingSlots = std::pow(2.0, 7 - it->second.m_ClassBPingPeriodicity); // number of ping slots is based on ping periodicity, and is always a power of two.
+    it->second.m_ClassBDataRateIndex = m_defaultClassBDataRateIndex;
+
+    //start the downlink data generation
+    uint32_t key = it->second.m_deviceAddress.Get (); 
+    Time t = Seconds (this->m_ClassBdownstreamRandomVariable->GetValue ());
+    it->second.m_ClassBdownstreamTimer = Simulator::Schedule (t, &LoRaWANNetworkServer::ClassBDSTimerExpired, this, key);
+    NS_LOG_DEBUG (this << " Class B DS Traffic Timer for node " << it->second.m_deviceAddress << " scheduled at " << t);
+
+    Time t2 = Seconds (this->m_ClassBdownstreamIATRandomVariable->GetValue ());
+    it->second.m_ClassBdownstreamTimerSchedule = Simulator::Schedule (t2, &LoRaWANNetworkServer::ClassBScheduleExpiry, this, key);
+    
+  } else if (!(frmHdr.getClassB ()) && it->second.m_isClassB && m_generateClassBDataDown) {
+    //turning off Class B mode
+    NS_LOG_DEBUG("Turning off Class B mode");
+    it->second.m_isClassB = false;
+
+    //stop the downlink data generation
+    it->second.m_ClassBdownstreamTimer = EventId();
+    it->second.m_ClassBdownstreamTimerSchedule = EventId();
   }
 
   // We should always schedule a timer, even when m_downstreamPacket is NULL as a new DS packet might be generated between now and RW1
@@ -510,11 +526,12 @@ LoRaWANNetworkServer::SendDSPacket (uint32_t deviceAddr, Ptr<LoRaWANGatewayAppli
     p = elementToSend.m_downstreamPacket->Copy (); // make a copy, so that we don't alter elementToSend.m_downstreamPacket as we might re-use this packet later (e.g. retransmission)
 
   // Construct Frame Header:
-  LoRaWANFrameHeader fhdr;
+  //LoRaWANFrameHeader fhdr;
+  LoRaWANFrameHeaderDownlink fhdr;
   fhdr.setDevAddr (Ipv4Address (deviceAddr));
   fhdr.setAck (it->second.m_setAck);
   fhdr.setFramePending (it->second.m_framePending);
-  fhdr.setFrameCounter (it->second.m_fCntDown++);
+  fhdr.setFrameCounter (++it->second.m_fCntDown);
   if (elementToSend.m_downstreamFramePort > 0)
     fhdr.setFramePort (elementToSend.m_downstreamFramePort);
 
@@ -749,6 +766,7 @@ LoRaWANNetworkServer::ClassBDSTimerExpired (uint32_t deviceAddr)
     it->second.m_ClassBdownstreamQueue.push_back (element);
     it->second.m_nClassBPacketsGenerated += 1;
 
+
     m_dsMsgGeneratedTrace (deviceAddr, element->m_downstreamTransmissionsRemaining, element->m_downstreamMsgType, element->m_downstreamPacket);
     NS_LOG_DEBUG (this << " Added downstream packet with size " << m_pktSize  << " to DS queue for end device " << Ipv4Address(deviceAddr) << ". queue size = " << it->second.m_downstreamQueue.size());
   }
@@ -780,6 +798,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   */
   NS_LOG_FUNCTION (this << " attempt to send beacon at" << Simulator::Now ().GetSeconds () );
 
+
   //clear old Class B ping slot queues
   for (auto gw = m_gateways.cbegin(); gw != m_gateways.cend(); gw++) {
     (*gw)->ClearPingSlotQueues();
@@ -800,7 +819,7 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   // unlike for Class A, where the gateway is just a relay, in Class B the beacons must be modified in the gateway, as some parameters are gateway dependent
 
   // build the majority of the beacon on the NS layer
-  uint8_t beacon[17];
+  uint8_t beacon[17] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
   // the beacon payload is in this format (EU868 only):
   // 2   4    2   7          2
@@ -816,6 +835,9 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
   beacon[3] = (t >> 8)  & 0xFF;
   beacon[4] = (t >> 16) & 0xFF;
   beacon[5] = (t >> 24) & 0xFF;
+
+  uint32_t time = (uint32_t)((beacon[5] << 24) | (beacon[4] << 16) | (beacon[3] << 8) | (beacon[2] << 0));
+  NS_LOG_DEBUG("time put into beacon: " << time);
 
   // CRC is defined in IEEE 802.15.4-2003 section 7.2.1.8, and is calculated on the bytes in the order they are sent over the air
   // e.g. so if the GPS time was 3422683136, then the hex of that is CC020000
@@ -854,29 +876,36 @@ LoRaWANNetworkServer::ClassBSendBeacon (){
     Calculate all slots first, then schedule them - that way conflicting slots (same time and gw) can be handled.
     */
 
+
     if(d->second.m_isClassB) {
 
       uint64_t period = std::pow(2.0, 12) / d->second.m_ClassBPingSlots;
-      uint8_t key[16]; // crypto not implemented across layers yet, assuming key of all 0s.   
-      uint8_t buf[16];
+      uint8_t key[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // crypto not implemented across layers yet, assuming key of all 0s.   
+      uint8_t buf[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
       double secs = timestamp.GetSeconds(); // convert to a 4 byte buffer
       uint32_t secsTruncated = (uint32_t) secs;
 
       uint8_t *sp = (uint8_t *)&secsTruncated;
-
       buf[0] = sp[0];
       buf[1] = sp[1];
       buf[2] = sp[2];
       buf[3] = sp[3];
 
       Ipv4Address devAddr = d->second.m_deviceAddress;
+
       uint8_t addr[4];
       devAddr.Serialize(addr);
       buf[4] = addr[0];
       buf[5] = addr[1];
       buf[6] = addr[2];
       buf[7] = addr[3];
+
+      //pad16 is to ensure the buffer is 16 bytes long
+      //the rest of the buffer (the other 8 bytes) is just 0s.
+      for(uint i=8; i<16;i++){
+        buf[i] = 0;
+      }
 
       AES aes;
       aes.SetKey(key, 16);
@@ -957,11 +986,11 @@ LoRaWANNetworkServer::ClassBPingSlot(uint32_t devAddr, uint64_t pingTime)
       Ptr<Packet> p = elementToSend.m_downstreamPacket->Copy (); // make a copy, so that we don't alter elementToSend.m_downstreamPacket as we might re-use this packet later (e.g. retransmission)
 
       // Construct Frame Header:
-      LoRaWANFrameHeader fhdr;
+      LoRaWANFrameHeaderDownlink fhdr;
       fhdr.setDevAddr (Ipv4Address (devAddr));
       fhdr.setAck (it->second.m_setAck);
       fhdr.setFramePending (it->second.m_framePending);
-      fhdr.setFrameCounter (it->second.m_fCntDown++);
+      fhdr.setFrameCounter (++it->second.m_fCntDown);
       if (elementToSend.m_downstreamFramePort > 0)
         fhdr.setFramePort (elementToSend.m_downstreamFramePort);
 
@@ -1357,10 +1386,10 @@ LoRaWANGatewayApplication::IsTopOfPingSlotQueue (uint64_t slot, uint32_t devAddr
 void
 LoRaWANGatewayApplication::PrintFinalDetails()
 {
-  std::cout << "GW" << std::endl;
+  /*std::cout << "GW" << std::endl;
    for(uint32_t i=0; i<4096; i++) {
     std::cout << m_pingSlotAllocated[i] << "\t" << m_pingSlotUsed[i] << "\t" << m_pingSlotFailedToUseCollision[i] << "\t" << m_pingSlotFailedToUseDutyCycle[i] << std::endl;
-   }
+   }*/
 }
 
 uint8_t

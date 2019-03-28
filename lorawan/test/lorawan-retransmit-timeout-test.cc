@@ -69,7 +69,7 @@ LoRaWANRetransmitTimeoutTestCase::DoRun (void)
   // Create 1 node, and a NetDevice
   Ptr<Node> n0 = CreateObject <Node> ();
 
-  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
+  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
 
   // Make random variable stream assignment deterministic
   //dev0->AssignStreams (0);

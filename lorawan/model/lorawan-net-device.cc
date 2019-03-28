@@ -65,7 +65,7 @@ LoRaWANNetDevice::GetTypeId (void)
   return tid;
 }
 
-LoRaWANNetDevice::LoRaWANNetDevice () : m_deviceType (LORAWAN_DT_END_DEVICE_CLASS_A), m_configComplete(false)
+LoRaWANNetDevice::LoRaWANNetDevice () : m_deviceType (LORAWAN_DT_END_DEVICE), m_configComplete(false)
 {}
 
 LoRaWANNetDevice::LoRaWANNetDevice (LoRaWANDeviceType deviceType)
@@ -73,7 +73,7 @@ LoRaWANNetDevice::LoRaWANNetDevice (LoRaWANDeviceType deviceType)
 {
   NS_LOG_FUNCTION (this);
 
-  if (deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (deviceType == LORAWAN_DT_END_DEVICE) {
     uint8_t index = 0;
     m_phy = CreateObject<LoRaWANPhy> (index);
     m_mac = CreateObject<LoRaWANMac> (index);
@@ -109,7 +109,7 @@ LoRaWANNetDevice::DoDispose (void)
 
   PrintFinalDetails();
   
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
 
     m_mac->Dispose ();
     m_phy->Dispose ();
@@ -134,7 +134,7 @@ void
 LoRaWANNetDevice::DoInitialize (void)
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     m_phy->Initialize ();
     m_mac->Initialize ();
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
@@ -150,10 +150,10 @@ LoRaWANNetDevice::DoInitialize (void)
 void
 LoRaWANNetDevice::CompleteConfig (void)
 {
-  // TODO: this function could share more code the CLASS_A and GW cases
+  // TODO: this function could share more code the end device and GW cases
   NS_LOG_FUNCTION (this);
 
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     if (m_mac == 0
         || m_macRDC == 0
         || m_phy == 0
@@ -239,11 +239,11 @@ void
 LoRaWANNetDevice::SetMac (Ptr<LoRaWANMac> mac)
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     m_mac = mac;
     CompleteConfig ();
   } else {
-    NS_ASSERT_MSG (0, "Not implemented for non Class A end devices");
+    NS_ASSERT_MSG (0, "Not implemented for this type of device");
   }
 }
 
@@ -251,11 +251,11 @@ void
 LoRaWANNetDevice::SetPhy (Ptr<LoRaWANPhy> phy)
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     m_phy = phy;
     CompleteConfig ();
   } else {
-    NS_ASSERT_MSG (0, "Not implemented for non Class A end devices");
+    NS_ASSERT_MSG (0, "Not implemented for this type of device");
   }
 }
 
@@ -263,7 +263,7 @@ void
 LoRaWANNetDevice::SetChannel (Ptr<SpectrumChannel> channel)
 {
   NS_LOG_FUNCTION (this << channel);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     m_phy->SetChannel (channel);
     channel->AddRx (m_phy);
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
@@ -273,7 +273,7 @@ LoRaWANNetDevice::SetChannel (Ptr<SpectrumChannel> channel)
       channel->AddRx (phy);
     }
   } else {
-    NS_ASSERT_MSG (0, "Not implemented for non Class A end devices");
+    NS_ASSERT_MSG (0, "Not implemented for this type of device");
   }
   CompleteConfig ();
 }
@@ -282,10 +282,10 @@ Ptr<LoRaWANMac>
 LoRaWANNetDevice::GetMac (void) const
 {
    NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     return m_mac;
   } else {
-    NS_ASSERT_MSG (0, "Not implemented for non Class A end devices");
+    NS_ASSERT_MSG (0, "Not implemented for this type of device");
     return NULL;
   }
 }
@@ -306,10 +306,10 @@ Ptr<LoRaWANPhy>
 LoRaWANNetDevice::GetPhy (void) const
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     return m_phy;
   } else {
-    NS_ASSERT_MSG (0, "Not implemented for non Class A end devices");
+    NS_ASSERT_MSG (0, "Not implemented for this type of device");
     return NULL;
   }
 }
@@ -343,7 +343,7 @@ Ptr<Channel>
 LoRaWANNetDevice::GetChannel (void) const
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     return m_phy->GetChannel ();
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     return m_phys[0]->GetChannel (); // assume all phys are on same Channel
@@ -373,7 +373,7 @@ Ptr<SpectrumChannel>
 LoRaWANNetDevice::DoGetChannel (void) const
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     return m_phy->GetChannel ();
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     return m_phys[0]->GetChannel (); // assume all phys are on same Channel
@@ -387,11 +387,11 @@ void
 LoRaWANNetDevice::SetAddress (Address address)
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     // LoRaWANMac uses ns3::Ipv4Address to store the 32-bit LoRaWAN Network addresses
     m_mac->SetDevAddr (Ipv4Address::ConvertFrom (address));
   } else {
-    NS_ASSERT_MSG (0, "Only Class A end devices have a network address");
+    NS_ASSERT_MSG (0, "Only end devices have a network address");
   }
 }
 
@@ -399,7 +399,7 @@ Address
 LoRaWANNetDevice::GetAddress (void) const
 {
   NS_LOG_FUNCTION (this);
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     return m_mac->GetDevAddr ();
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     return Ipv4Address(0xffffffff); // gateways don't really have addresses, but ns3 expects most net devices to have an adresses (TODO: is this true?) so we allocated the all ones address for all gateways ...
@@ -566,7 +566,7 @@ LoRaWANNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protoc
   else if (msgType == LORAWAN_UNCONFIRMED_DATA_UP)
     loRaWANDataRequestParams.m_numberOfTransmissions = m_nbRep;
 
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     m_mac->sendMACPayloadRequest (loRaWANDataRequestParams, packet);
     return true;
   } 
@@ -747,7 +747,7 @@ LoRaWANNetDevice::AssignStreams (int64_t stream)
 {
   NS_LOG_FUNCTION (stream);
   int64_t streamIndex = stream;
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     streamIndex += m_phy->AssignStreams (stream);
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     for (uint8_t i = 0; i < m_phys.size (); i++) {
@@ -786,7 +786,7 @@ void
 LoRaWANNetDevice::PrintFinalDetails ()
 {
   //phy layers could be accessed here too, if needed.
-   if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+   if (m_deviceType == LORAWAN_DT_END_DEVICE) {
       std::cout << Ipv4Address::ConvertFrom (GetAddress()).Get() << "\t" << m_mac->m_failToTxBusy << "\t" << m_mac->m_failToTxDutyCycle << "\t" << m_mac->m_failToRxBeaconBusy << "\t" << m_mac->m_failToRxDlBusy << std::endl;
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     uint32_t tot_failToTxBusy = 0;

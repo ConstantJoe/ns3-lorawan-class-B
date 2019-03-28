@@ -88,9 +88,10 @@ namespace ns3 {
   typedef enum
   {
     LORAWAN_DT_GATEWAY = 0,
-    LORAWAN_DT_END_DEVICE_CLASS_A,
-    LORAWAN_DT_END_DEVICE_CLASS_B,
-    LORAWAN_DT_END_DEVICE_CLASS_C
+    LORAWAN_DT_END_DEVICE
+    /*LORAWAN_DT_END_DEVICE_CLASS,
+    LORAWAN_DT_END_DEVICE_CLASS_B,          // LoRaWAN Class B devices, aside from the downlink pings and beacon receives, operate the same as Class A devices
+    LORAWAN_DT_END_DEVICE_CLASS_C*/         // Class C not yet implemented
   } LoRaWANDeviceType;
 
   /**

@@ -95,7 +95,7 @@ LoRaWANGatewayForceOffTest::DataIndicationGateway (LoRaWANGatewayForceOffTest *t
   NS_LOG_UNCOND ("DataIndicationGateway : Received packet of size " << p->GetSize () << " from end device with address " << dev->GetAddress ());
 
   // Decode Frame header
-  LoRaWANFrameHeader frmHdr;
+  LoRaWANFrameHeaderUplink frmHdr;
   frmHdr.setSerializeFramePort (true); // Assume that frame Header contains Frame Port so set this to true so that RemoveHeader will deserialize the FPort
   p->RemoveHeader (frmHdr);
   // Find end device meta data:
@@ -126,8 +126,8 @@ LoRaWANGatewayForceOffTest::DoRun (void)
   Ptr<Node> n1 = CreateObject <Node> ();
   Ptr<Node> gw = CreateObject <Node> ();
 
-  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
-  Ptr<LoRaWANNetDevice> dev1 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
+  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
+  Ptr<LoRaWANNetDevice> dev1 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
   Ptr<LoRaWANNetDevice> dev_gw = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_GATEWAY);
 
   // Make random variable stream assignment deterministic
@@ -193,10 +193,10 @@ LoRaWANGatewayForceOffTest::DoRun (void)
 
   // US packet from node 0
   Ptr<Packet> p0 = Create<Packet> (20);  // 20 bytes of dummy data
-  LoRaWANFrameHeader frmHdr0;
+  LoRaWANFrameHeaderUplink frmHdr0;
   frmHdr0.setDevAddr (node0Addr);
   frmHdr0.setAck (false);
-  frmHdr0.setFramePending (false);
+  frmHdr0.setClassB(false);
   frmHdr0.setFrameCounter (1);
   frmHdr0.setSerializeFramePort (true); // No Frame Port
   p0->AddHeader (frmHdr0);
@@ -225,8 +225,9 @@ LoRaWANGatewayForceOffTest::DoRun (void)
 
   // DS packet from gateway to node 0, should abort reception of p1 by gateway
   Ptr<Packet> p2 = Create<Packet> (20);  // 20 bytes of dummy data
-  LoRaWANFrameHeader frmHdr2;
+  LoRaWANFrameHeaderDownlink frmHdr2;
   frmHdr2.setDevAddr (node0Addr);
+  frmHdr2.setAdr (false);
   frmHdr2.setAck (false);
   frmHdr2.setFramePending (false);
   frmHdr2.setFrameCounter (1);
