@@ -141,7 +141,7 @@ private:
   bool            m_setAck;      //!< Set the Ack bit in the next transmission
   uint64_t        m_totalRx;      //!< Total bytes received
 
-  void ClassBSchedulePingSlots (Time timestamp);
+  void ClassBSchedulePingSlots ();
   void ClassBReceiveBeacon ();
   void ClassBPingSlot ();
 
@@ -161,6 +161,8 @@ private:
 
   uint32_t    m_devAddr;
 
+  Time        m_timestamp;
+  uint8_t     m_missedBeaconsCounter;
 
 
 

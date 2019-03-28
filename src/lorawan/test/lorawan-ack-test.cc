@@ -89,7 +89,7 @@ LoRaWANAckTestCase::DoRun (void)
   Ptr<Node> n0 = CreateObject <Node> ();
   Ptr<Node> gw = CreateObject <Node> ();
 
-  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
+  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
   Ptr<LoRaWANNetDevice> dev1 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_GATEWAY);
 
   // Make random variable stream assignment deterministic
@@ -152,10 +152,9 @@ LoRaWANAckTestCase::DoRun (void)
 
   // Create Ack packet
   Ptr<Packet> p1 = Create<Packet> (0);  // empty packet
-  LoRaWANFrameHeader frmHdr;
+  LoRaWANFrameHeaderUplink frmHdr;
   frmHdr.setDevAddr (nodeAddr);
   frmHdr.setAck (true);
-  frmHdr.setFramePending (false);
   frmHdr.setFrameCounter (1);
   frmHdr.setSerializeFramePort (false); // No Frame Port
   p1->AddHeader (frmHdr);

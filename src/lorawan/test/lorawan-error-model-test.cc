@@ -82,7 +82,7 @@ LoRaWANErrorDistanceTestCase::DoRun (void)
 
   Ptr<Node> n0 = CreateObject <Node> ();
   Ptr<Node> n1 = CreateObject <Node> ();
-  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE_CLASS_A);
+  Ptr<LoRaWANNetDevice> dev0 = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_END_DEVICE);
   Ptr<LoRaWANNetDevice> devgw = CreateObject<LoRaWANNetDevice> (LORAWAN_DT_GATEWAY);
 
   // Make random variable stream assignment deterministic

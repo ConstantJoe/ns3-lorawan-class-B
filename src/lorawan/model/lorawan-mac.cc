@@ -21,7 +21,7 @@
 #include "lorawan-mac.h"
 #include "lorawan-mac-header.h"
 #include "lorawan-net-device.h"
-#include "lorawan-frame-header.h"
+#include "lorawan-frame-header-plain.h"
 #include <ns3/simulator.h>
 #include <ns3/log.h>
 #include <ns3/packet.h>
@@ -139,7 +139,7 @@ LoRaWANMac::LoRaWANMac (uint8_t index) : m_index (index)
   //m_LoRaWANMacState [0] = MAC_IDLE;
   ChangeMacState (MAC_IDLE);
 
-  m_deviceType = LORAWAN_DT_END_DEVICE_CLASS_A;
+  m_deviceType = LORAWAN_DT_END_DEVICE;
   m_RX1DROffset = 0; // default value is zero
 
   // m_macPromiscuousMode = false;
@@ -187,7 +187,7 @@ LoRaWANMac::DoInitialize ()
 void
 LoRaWANMac::sendTRXStateRequestForIdleMAC ()
 {
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
       m_phy->SetTRXStateRequest (LORAWAN_PHY_TRX_OFF);
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
       m_phy->SetTRXStateRequest (LORAWAN_PHY_RX_ON);
@@ -441,7 +441,7 @@ LoRaWANMac::PdDataDestroyed (void)
 {
   NS_LOG_FUNCTION (this);
 
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // end device started receiving a frame in its RW, but the frame was destroyed => always close RW
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) { // end device started receiving a frame in its RW, but the frame was destroyed => always close RW
       CloseRW ();
   }
 }
@@ -451,7 +451,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
 {
   // TODO: which state?
 
-  if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     NS_ASSERT (m_LoRaWANMacState == MAC_RW1 || m_LoRaWANMacState == MAC_RW2 || m_LoRaWANMacState == MAC_BEACON || m_LoRaWANMacState == MAC_CLASS_B_PACKET); // gateway would be in MAC_IDLE, class A in either RW1 or RW2
   } else if (m_deviceType == LORAWAN_DT_GATEWAY) {
     NS_ASSERT (m_LoRaWANMacState == MAC_IDLE);
@@ -516,7 +516,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
   else {
      NS_LOG_DEBUG("Receiving a non-beacon frame");
 
-    if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // Class A only accepts downstream
+    if (m_deviceType == LORAWAN_DT_END_DEVICE) { // End Devices only accept downstream
       if (!macHdr.IsDownstream ()) {
         acceptFrame = false;
       }
@@ -548,7 +548,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
     if (acceptFrame) {
       m_macRxTrace (p);
       m_snifferTrace(p);
-      if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+      if (m_deviceType == LORAWAN_DT_END_DEVICE) {
         // Check Ack bit (?) -> for class A, can remove frame that is pending in TX queue
         // Class A: check FPending bit (?) -> should schedule a new TX op soon
         // Class A: we are freed from waiting on RW2.
@@ -599,7 +599,7 @@ LoRaWANMac::PdDataIndication (uint32_t phyPayloadLength, Ptr<Packet> p, uint8_t 
       }
     } else {
       m_macRxDropTrace (p);
-      if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // An end device received a frame in its RW, but the frame was not destined to this end device
+      if (m_deviceType == LORAWAN_DT_END_DEVICE) { // An end device received a frame in its RW, but the frame was not destined to this end device
         // Just close the receive window
         CloseRW ();
       }
@@ -718,7 +718,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
           RemoveFirstTxQElement (true);
         }
       } else {
-        if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+        if (m_deviceType == LORAWAN_DT_END_DEVICE) {
           // For confirmed messages, decrease the number of transmissions
           NS_ASSERT (txQElement->lorawanDataRequestParams.m_numberOfTransmissions > 0);
           NS_LOG_DEBUG( this << " Decreasing number of transmission for packet from " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) << " to " << static_cast<int> (txQElement->lorawanDataRequestParams.m_numberOfTransmissions) - 1);
@@ -735,7 +735,7 @@ LoRaWANMac::PdDataConfirm (LoRaWANPhyEnumeration status)
       
 
       // Update MAC and PHY state: depending on device class go to either WAITFORRW1 or directly to IDLE
-      if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) { // always go to WAITFORRW1 for Class A
+      if (m_deviceType == LORAWAN_DT_END_DEVICE) { // always go to WAITFORRW1 for a Class A transmit
         // Note that the Ack timeout timer will only start running at the beginning of RW2
         m_lastUplinkBitTime = Simulator::Now ();
         m_setMacState = Simulator::ScheduleNow (&LoRaWANMac::SetLoRaWANMacState, this, MAC_WAITFORRW1);
@@ -809,7 +809,7 @@ LoRaWANMac::sendMACPayloadRequest (LoRaWANDataRequestParams params, Ptr<Packet> 
       NS_LOG_ERROR (this << " Gateway only supports downstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
     }
-  } else if (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  } else if (m_deviceType == LORAWAN_DT_END_DEVICE) {
     if (!(params.m_msgType == LORAWAN_CONFIRMED_DATA_UP || params.m_msgType == LORAWAN_UNCONFIRMED_DATA_UP) ) {
       NS_LOG_ERROR (this << " End device only supports upstream data, requested LoRaWAN Message type: " << params.m_msgType);
       return;
@@ -1114,7 +1114,7 @@ LoRaWANMac::OpenRW ()
 {
   NS_LOG_FUNCTION (this);
 
-  NS_ASSERT (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A);
+  NS_ASSERT (m_deviceType == LORAWAN_DT_END_DEVICE);
 
   if (m_LoRaWANMacState == MAC_RW1) {
     // RW1 uses the same channel as the preceding uplink
@@ -1205,7 +1205,7 @@ LoRaWANMac::CloseRW ()
 {
   // This function is called to close the RW in case no frame was received during the RW
   NS_LOG_FUNCTION (this);
-  NS_ASSERT (m_deviceType == LORAWAN_DT_END_DEVICE_CLASS_A);
+  NS_ASSERT (m_deviceType == LORAWAN_DT_END_DEVICE);
 
   // Update MAC state?
   if (m_LoRaWANMacState == MAC_RW1) { // no frame received, so should continue to RW2

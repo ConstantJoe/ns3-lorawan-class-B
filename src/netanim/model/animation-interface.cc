@@ -925,7 +925,7 @@ AnimationInterface::LoRaWANPhyTxBeginTrace (std::string context,
   // For end devices: get MAC address from the net device
   // For gateways: assume fixed MAC address of ff:ff:ff:ff
   std::ostringstream oss;
-  if (netDevice->GetDeviceType () == LORAWAN_DT_END_DEVICE_CLASS_A) {
+  if (netDevice->GetDeviceType () == LORAWAN_DT_END_DEVICE) {
     Ipv4Address nodeAddr = netDevice->GetMac()->GetDevAddr ();
     oss << nodeAddr;
   } else if (netDevice->GetDeviceType () == LORAWAN_DT_GATEWAY) {
@@ -1592,7 +1592,7 @@ AnimationInterface::ConnectCallbacks ()
     out << "/NodeList/" << std::to_string(node->GetId()) << "/DeviceList/" << "0" << "/"; // for reference: NodeList/*/DeviceList/*/
     context = out.str();
 
-    if (deviceType == LORAWAN_DT_END_DEVICE_CLASS_A) {
+    if (deviceType == LORAWAN_DT_END_DEVICE) {
       Ptr<LoRaWANMac> mac = netDevice->GetMac ();
       mac->TraceConnect("MacTx", context, MakeCallback (&AnimationInterface::LoRaWANMacTxTrace, this));
       mac->TraceConnect("MacTxDrop", context, MakeCallback (&AnimationInterface::LoRaWANMacTxDropTrace, this));

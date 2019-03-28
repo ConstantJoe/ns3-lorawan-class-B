@@ -37,7 +37,7 @@ namespace ns3 {
  * LoRaWANNetDevice objects and to configure a large set of
  * their attributes during creation.
  */
-class LoRaWANHelper : public PcapHelperForDevice {
+class LoRaWANHelper {
 public:
   /**
    * \brief Create a LoRaWAN helper in an empty state.  By default, a
@@ -128,8 +128,6 @@ private:
    * \returns
    */
   LoRaWANHelper& operator= (LoRaWANHelper const &);
-
-   virtual void EnablePcapInternal (std::string prefix, Ptr<NetDevice> nd, bool promiscuous, bool explicitFilename);
 
 private:
   Ptr<SpectrumChannel> m_channel; //!< channel to be used for the devices
